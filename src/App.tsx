@@ -1,20 +1,10 @@
-import { useEffect, useState } from "react";
-import api from "./services/api.ts";
+import Sidebar from "./components/Sidebar/index";
 
-function App() {
-  const [msg, setMsg] = useState("");
-
-  useEffect(() => {
-    api.get<{ message: string }>("/teste")
-      .then((res) => setMsg(res.data.message))
-      .catch((err: unknown) => console.log(err));
-  }, []);
+export default function App() {
 
   return (
     <div>
-      <h1>{msg}</h1>
+      <Sidebar />
     </div>
   );
 }
-
-export default App;
