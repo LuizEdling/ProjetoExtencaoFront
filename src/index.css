@@ -1,113 +1,131 @@
+@import "tailwindcss";
 
+:root{
+  /* BACKGROUNDS */
+  --background-first-layer: #f4f6f7;
+  --background-second-layer: #FBFCFC;
 
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* TEXT */
+  --text-primary: #1d1d1f;
+  --text-secondary: #8EA0B0;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* NEUTRALS */
+  --light-gray: #c7c7cc;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* BRAND / HIGHLIGHT */
+  --green-title: #A1C400;
+  --highlighted-text: #DAFE34;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  /* FEEDBACK */
+  --success-advice: #4AC474;
+  --error-advice: #E03F28;
+
+  /* === PALETA CARDS === */
+  /* LIGHT GREEN */
+  --light-green: #A1C400;
+  --light-green-bg: #F5F7ED;
+
+  /* ORANGE */
+  --orange: #F59F0A;
+  --orange-bg: #FDF5E6;
+
+  /* GREEN */
+  --green: #21C45D;
+  --green-bg: #E8F9EE;
+
+  /* BLUE */
+  --blue: #3C83F6;
+  --blue-bg: #EBF2FE;
+
+  /* RED */
+  --red: #E54D28;
+  --red-bg: #FADFDf;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+/* 100 - Thin */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-100.woff2') format('woff2');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+/* 200 - Extra Light */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-200.woff2') format('woff2');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
 }
 
-body {
-  margin: 0;
+/* 300 - Light */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-300.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
+/* 400 - Regular */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 500 - Medium */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-500.woff2') format('woff2');
   font-weight: 500;
-  color: var(--text-h);
+  font-style: normal;
+  font-display: swap;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
+/* 600 - SemiBold */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
+
+/* 700 - Bold */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
 }
-p {
+
+/* 800 - ExtraBold */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-800.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 900 - Black */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-900.woff2') format('woff2');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+body{
   margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+  padding: 0;
+  background-color: var(--background-first-layer);
+  font-family: 'Inter', sans-serif;
 }
