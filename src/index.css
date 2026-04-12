@@ -45,7 +45,7 @@
 /* 100 - Thin */
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/inter-100.woff2') format('woff2');
+  src: url('/font/inter-100.woff2') format('woff2');
   font-weight: 100;
   font-style: normal;
   font-display: swap;
@@ -54,7 +54,7 @@
 /* 200 - Extra Light */
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/inter-200.woff2') format('woff2');
+  src: url('/font/inter-200.woff2') format('woff2');
   font-weight: 200;
   font-style: normal;
   font-display: swap;
@@ -63,7 +63,7 @@
 /* 300 - Light */
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/inter-300.woff2') format('woff2');
+  src: url('/font/inter-300.woff2') format('woff2');
   font-weight: 300;
   font-style: normal;
   font-display: swap;
@@ -72,7 +72,7 @@
 /* 400 - Regular */
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/inter-400.woff2') format('woff2');
+  src: url('/font/inter-400.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -81,7 +81,7 @@
 /* 500 - Medium */
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/inter-500.woff2') format('woff2');
+  src: url('/font/inter-500.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -90,7 +90,7 @@
 /* 600 - SemiBold */
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/inter-600.woff2') format('woff2');
+  src: url('/font/inter-600.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
@@ -99,7 +99,7 @@
 /* 700 - Bold */
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/inter-700.woff2') format('woff2');
+  src: url('/font/inter-700.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -108,7 +108,7 @@
 /* 800 - ExtraBold */
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/inter-800.woff2') format('woff2');
+  src: url('/font/inter-800.woff2') format('woff2');
   font-weight: 800;
   font-style: normal;
   font-display: swap;
@@ -117,7 +117,7 @@
 /* 900 - Black */
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/inter-900.woff2') format('woff2');
+  src: url('/font/inter-900.woff2') format('woff2');
   font-weight: 900;
   font-style: normal;
   font-display: swap;
@@ -127,4 +127,147 @@ body{
   margin: 0;
   padding: 0;
   background-color: var(--background-first-layer);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--text-primary);
+}
+
+.dark {
+  --background-first-layer: #1a1d21;
+  --background-second-layer: #242830;
+  --text-primary: #f4f6f7;
+  --text-secondary: #9aa5b1;
+  --light-gray: #4a5568;
+}
+
+/* —— Form (shared by fichas modals + combobox) —— */
+.form-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  margin-bottom: 0.25rem;
+}
+
+.form-control {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--light-gray) 50%, transparent);
+  background: var(--background-first-layer);
+  color: var(--text-primary);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  font-family: inherit;
+  outline: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.form-control::placeholder {
+  color: color-mix(in srgb, var(--text-secondary) 65%, transparent);
+}
+
+.form-control:hover:not(:focus) {
+  border-color: color-mix(in srgb, var(--light-gray) 78%, transparent);
+}
+
+.form-control:focus {
+  border-color: var(--light-green);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--highlighted-text) 28%, transparent),
+    0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+textarea.form-control {
+  min-height: 5rem;
+}
+
+/* —— Modal / list entrance animations —— */
+@keyframes modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes detail-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes combobox-list-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes form-alert-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-backdrop-enter {
+  animation: modal-backdrop-in 0.2s ease-out both;
+}
+
+.modal-panel-enter {
+  animation: modal-panel-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.detail-row-enter {
+  animation: detail-row-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.combobox-list-enter {
+  animation: combobox-list-in 0.18s ease-out both;
+  transform-origin: top center;
+}
+
+.form-alert-enter {
+  animation: form-alert-in 0.25s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop-enter,
+  .modal-panel-enter,
+  .detail-row-enter,
+  .combobox-list-enter,
+  .form-alert-enter {
+    animation: none;
+  }
 }

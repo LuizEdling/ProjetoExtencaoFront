@@ -1,12 +1,22 @@
 import { useState } from "react";
+import { NavLink } from "react-router-dom";
 import { NAV_LINKS } from "../../constants/nav-links";
+import ThemeToggle from "./ThemeToggle";
+
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  [
+    "w-full p-3 rounded-[15px] cursor-pointer text-md flex gap-2 items-center transition-all",
+    "text-(--text-primary)",
+    isActive
+      ? "bg-(--highlighted-text) font-medium shadow-sm"
+      : "hover:bg-(--highlighted-text)/60",
+  ].join(" ");
 
 export default function SidebarMobile() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <>
-      {/* Top bar */}
       <header
         className="
           fixed top-0 left-0 right-0 z-50
@@ -14,19 +24,25 @@ export default function SidebarMobile() {
           px-4
           flex items-center justify-between
           bg-(--background-second-layer)
-          border-b border-white/10
+          border-b border-(--light-gray)/20
         "
       >
-        <img src="/logo.webp" className="w-10 h-10" />
+        <img
+          src="/favicon.ico"
+          alt="Projeto Extensão"
+          className="w-10 h-10 object-contain rounded-lg"
+        />
 
         <button
+          type="button"
           onClick={() => setIsOpen((prev) => !prev)}
           className="
             p-2 rounded-[10px]
             hover:bg-(--highlighted-text)/60 transition-all
-            cursor-pointer
+            cursor-pointer text-(--text-primary)
           "
-          aria-label="Abrir menu"
+          aria-label={isOpen ? "Fechar menu" : "Abrir menu"}
+          aria-expanded={isOpen}
         >
           <div className="flex flex-col gap-1.5 w-5">
             <span
@@ -51,18 +67,17 @@ export default function SidebarMobile() {
         </button>
       </header>
 
-      {/* Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40"
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
           onClick={() => setIsOpen(false)}
+          aria-hidden
         />
       )}
 
-      {/* Drawer */}
       <aside
         className={`
-          fixed top-0 left-0 z-50
+          fixed top-0 left-0 z-50 md:hidden
           h-screen w-72
           px-8 py-6
           flex flex-col justify-between
@@ -74,31 +89,26 @@ export default function SidebarMobile() {
       >
         <div>
           <div className="flex items-center justify-between mb-10">
-            <img src="/logo.webp" className="w-14 h-14" />
+            <img
+              src="/favicon.ico"
+              alt="Projeto Extensão"
+              className="w-14 h-14 object-contain rounded-lg"
+            />
           </div>
 
           <nav>
-            <ul className="flex flex-col gap-3">
+            <ul className="flex flex-col gap-2">
               {NAV_LINKS.map((link) => (
-                <li key={link.name}>
-                  <a
+                <li key={link.path}>
+                  <NavLink
+                    to={link.path}
+                    className={navLinkClass}
+                    end
                     onClick={() => setIsOpen(false)}
-                    className="
-                      w-full
-                      p-3
-                      rounded-[15px]
-                      cursor-pointer
-                      text-md
-                      flex gap-2 items-center
-                      hover:bg-(--highlighted-text)/60 transition-all
-                    "
                   >
-                    <img
-                      src={link.icoPath}
-                      alt={`Ícone para ${link.name}`}
-                    />
+                    <img src={link.icoPath} alt="" className="w-5 h-5 shrink-0" />
                     {link.name}
-                  </a>
+                  </NavLink>
                 </li>
               ))}
             </ul>
@@ -106,22 +116,26 @@ export default function SidebarMobile() {
         </div>
 
         <div>
-          <hr className="mb-5" />
-          <div className="flex flex-col gap-1.5">
-            <div className="flex flex-row gap-2 p-2">
-              <img
-                src="/icons/sidebar/logout.svg"
-                alt="Ícone para log out"
-                className="w-5"
-              />
-              <p>Sair</p>
-            </div>
+          <hr className="mb-4 border-(--light-gray)/40" />
+          <div className="flex flex-col gap-1">
+            <ThemeToggle />
+            <NavLink
+              to="/"
+              onClick={() => setIsOpen(false)}
+              className="
+                flex flex-row items-center gap-2 p-2 rounded-[12px]
+                text-(--text-primary)
+                hover:bg-(--highlighted-text)/40 transition-all
+              "
+            >
+              <img src="/icons/sidebar/logout.svg" alt="" className="w-5 h-5" />
+              <span>Sair</span>
+            </NavLink>
           </div>
         </div>
       </aside>
 
-      {/* Spacer para o conteúdo não ficar atrás da top bar */}
-      <div className="h-14" />
+      <div className="h-14 shrink-0 md:hidden" aria-hidden />
     </>
   );
 }
