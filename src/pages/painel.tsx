@@ -1,48 +1,17 @@
-import { useMemo, useState } from "react";
-import type {
-  AnimalFila,
-  ProcedimentoTipo,
-  PrioridadeTipo,
-  ResumoCardData,
-} from "../mocks/painelData";
-import { buildPainelMock } from "../mocks/painelData";
+import axios from "axios";
+import { useEffect, useMemo, useState } from "react";
+import { estadoBadgeClass, estadoDotClass } from "../constants/animalEstadoStyles";
+import { formatDateBR, formatDateTimeBR } from "../lib/formatFicha";
+import { fetchPainel } from "../services/painelApi";
+import type { AnimalFila, PainelDashboardData, ResumoCardData } from "../types/painel";
 
-function procedimentoLabel(t: ProcedimentoTipo): string {
-  const map: Record<ProcedimentoTipo, string> = {
-    cirurgia: "Cirurgia",
-    vacina: "Vacina",
-    consulta: "Consulta",
-    observacao: "Observação",
-  };
-  return map[t];
-}
-
-function procedimentoClasses(t: ProcedimentoTipo): string {
-  const map: Record<ProcedimentoTipo, string> = {
-    cirurgia: "bg-(--red-bg) text-(--red)",
-    vacina: "bg-(--green-bg) text-(--green)",
-    consulta: "bg-(--blue-bg) text-(--blue)",
-    observacao: "bg-(--orange-bg) text-(--orange)",
-  };
-  return map[t];
-}
-
-function prioridadeClasses(p: PrioridadeTipo): string {
-  const map: Record<PrioridadeTipo, string> = {
-    alta: "text-(--error-advice) font-medium",
-    media: "text-(--orange) font-medium",
-    baixa: "text-amber-600 font-medium dark:text-amber-400",
-  };
-  return map[p];
-}
-
-function prioridadeLabel(p: PrioridadeTipo): string {
-  const map: Record<PrioridadeTipo, string> = {
-    alta: "Alta",
-    media: "Média",
-    baixa: "Baixa",
-  };
-  return map[p];
+function loadErrorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as { message?: string } | undefined;
+    return data?.message ?? err.message ?? "Erro ao carregar o painel.";
+  }
+  if (err instanceof Error) return err.message;
+  return "Erro ao carregar o painel.";
 }
 
 function ResumoIcon({ icon, className }: { icon: ResumoCardData["icon"]; className?: string }) {
@@ -84,9 +53,28 @@ function ResumoIcon({ icon, className }: { icon: ResumoCardData["icon"]; classNa
 }
 
 export default function Painel() {
-  const [dashboard] = useState(buildPainelMock);
+  const [dashboard, setDashboard] = useState<PainelDashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const pendentesCount = dashboard.filaAtendimento.length;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const data = await fetchPainel();
+        if (!cancelled) setDashboard(data);
+      } catch (e) {
+        if (!cancelled) setLoadError(loadErrorMessage(e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const legendaClass = useMemo(
     () => ({
@@ -97,9 +85,11 @@ export default function Painel() {
     []
   );
 
+  const pendentesCount = dashboard?.filaAtendimento.length ?? 0;
+
   return (
     <div className="max-w-7xl mx-auto w-full space-y-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-(--green-title) tracking-tight">
             Painel
@@ -108,158 +98,166 @@ export default function Painel() {
             Veja seu resumo de hoje
           </p>
         </div>
-        <label className="relative w-full sm:max-w-xs block">
-          <span className="sr-only">Buscar</span>
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-(--text-secondary)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <circle cx="11" cy="11" r="7" />
-              <path d="M20 20l-3-3" strokeLinecap="round" />
-            </svg>
-          </span>
-          <input
-            type="search"
-            placeholder="Buscar..."
-            className="
-              w-full rounded-full border border-(--light-gray)/50
-              bg-(--background-second-layer) text-(--text-primary)
-              pl-10 pr-4 py-2.5 text-sm
-              shadow-sm outline-none
-              focus:border-(--light-green) focus:ring-2 focus:ring-(--highlighted-text)/40
-            "
-          />
-        </label>
       </header>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {dashboard.resumos.map((card) => (
-          <article
-            key={card.id}
-            className="
-              relative overflow-hidden rounded-2xl
-              bg-(--background-second-layer)
-              border border-(--light-gray)/25
-              px-5 pt-5 pb-4 shadow-sm
-            "
-          >
-            <div className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-xl bg-(--background-first-layer)">
-              <ResumoIcon icon={card.icon} />
-            </div>
-            <p className="text-sm text-(--text-secondary) pr-12">{card.titulo}</p>
-            <p className="mt-2 text-3xl font-bold text-(--text-primary) tracking-tight">{card.valor}</p>
-            <p className={`mt-1 text-xs sm:text-sm ${legendaClass[card.legendaVariant]}`}>
-              {card.legenda}
-            </p>
-          </article>
-        ))}
-      </section>
-
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
+      {loadError && (
         <div
           className="
-            lg:col-span-2 rounded-2xl
-            bg-(--background-second-layer)
-            border border-(--light-gray)/25
-            shadow-sm overflow-hidden
+            rounded-2xl border border-(--error-advice)/40 bg-(--red-bg)/50
+            px-4 py-3 text-sm text-(--error-advice)
           "
+          role="alert"
         >
-          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-(--light-gray)/20">
-            <h2 className="text-lg font-semibold text-(--text-primary)">
-              Animais aguardando atendimento
-            </h2>
-            <span
-              className="
-                inline-flex items-center rounded-full px-3 py-1 text-xs font-medium
-                bg-(--orange-bg) text-(--orange)
-              "
-            >
-              {pendentesCount} pendentes
-            </span>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="text-(--text-secondary) border-b border-(--light-gray)/15">
-                  <th className="font-medium px-5 py-3 whitespace-nowrap">Animal</th>
-                  <th className="font-medium px-3 py-3 whitespace-nowrap">Espécie</th>
-                  <th className="font-medium px-3 py-3 whitespace-nowrap">Procedimento</th>
-                  <th className="font-medium px-3 py-3 whitespace-nowrap">Prioridade</th>
-                  <th className="font-medium px-5 py-3 whitespace-nowrap text-right">Entrada</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dashboard.filaAtendimento.map((row: AnimalFila) => (
-                  <tr
-                    key={row.id}
-                    className="border-b border-(--light-gray)/10 last:border-0 hover:bg-(--background-first-layer)/80"
-                  >
-                    <td className="px-5 py-3.5 font-medium text-(--text-primary)">{row.nome}</td>
-                    <td className="px-3 py-3.5 text-(--text-secondary)">{row.especie}</td>
-                    <td className="px-3 py-3.5">
-                      <span
-                        className={`
-                          inline-flex rounded-lg px-2.5 py-1 text-xs font-medium
-                          ${procedimentoClasses(row.procedimento)}
-                        `}
-                      >
-                        {procedimentoLabel(row.procedimento)}
-                      </span>
-                    </td>
-                    <td className={`px-3 py-3.5 ${prioridadeClasses(row.prioridade)}`}>
-                      {prioridadeLabel(row.prioridade)}
-                    </td>
-                    <td className="px-5 py-3.5 text-right tabular-nums text-(--text-secondary)">
-                      {row.entrada}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {loadError}
         </div>
+      )}
 
-        <div
-          className="
-            rounded-2xl
-            bg-(--background-second-layer)
-            border border-(--light-gray)/25
-            shadow-sm overflow-hidden
-          "
-        >
-          <div className="px-5 py-4 border-b border-(--light-gray)/20">
-            <h2 className="text-lg font-semibold text-(--text-primary)">Cadastrados hoje</h2>
-          </div>
-          <ul className="divide-y divide-(--light-gray)/15 p-3 space-y-2">
-            {dashboard.cadastrosHoje.map((item) => (
-              <li
-                key={item.id}
+      {loading && (
+        <p className="text-center text-(--text-secondary) py-16">Carregando painel…</p>
+      )}
+
+      {!loading && !loadError && dashboard && (
+        <>
+          <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            {dashboard.resumos.map((card) => (
+              <article
+                key={card.id}
                 className="
-                  flex items-center gap-3 rounded-xl p-3
-                  bg-(--background-first-layer)/50
-                  hover:bg-(--background-first-layer) transition-colors
+                  relative overflow-hidden rounded-2xl
+                  bg-(--background-second-layer)
+                  border border-(--light-gray)/25
+                  px-5 pt-5 pb-4 shadow-sm
                 "
               >
-                <div
-                  className="
-                    flex h-11 w-11 shrink-0 items-center justify-center rounded-lg
-                    bg-(--light-green) text-white
-                  "
-                  aria-hidden
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 10.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm4.5 2c-.8 0-1.5-.7-1.5-1.5S15.7 9.5 16.5 9.5 18 10.2 18 11s-.7 1.5-1.5 1.5zm-9 0C6.7 12.5 6 11.8 6 11s.7-1.5 1.5-1.5S9 10.2 9 11s-.7 1.5-1.5 1.5z" />
-                  </svg>
+                <div className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-xl bg-(--background-first-layer)">
+                  <ResumoIcon icon={card.icon} />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-(--text-primary) truncate">{item.nome}</p>
-                  <p className="text-xs text-(--text-secondary) truncate">{item.tipoRaca}</p>
-                </div>
-                <span className="text-xs tabular-nums text-(--text-secondary) shrink-0">{item.horario}</span>
-              </li>
+                <p className="text-sm text-(--text-secondary) pr-12">{card.titulo}</p>
+                <p className="mt-2 text-3xl font-bold text-(--text-primary) tracking-tight">{card.valor}</p>
+                <p className={`mt-1 text-xs sm:text-sm ${legendaClass[card.legendaVariant]}`}>
+                  {card.legenda}
+                </p>
+              </article>
             ))}
-          </ul>
-        </div>
-      </section>
+          </section>
+
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
+            <div
+              className="
+                lg:col-span-2 rounded-2xl
+                bg-(--background-second-layer)
+                border border-(--light-gray)/25
+                shadow-sm overflow-hidden
+              "
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-(--light-gray)/20">
+                <h2 className="text-lg font-semibold text-(--text-primary)">
+                  Animais aguardando atendimento
+                </h2>
+                <span
+                  className="
+                    inline-flex items-center rounded-full px-3 py-1 text-xs font-medium
+                    bg-(--orange-bg) text-(--orange)
+                  "
+                >
+                  {pendentesCount} pendentes
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="text-(--text-secondary) border-b border-(--light-gray)/15">
+                      <th className="font-medium px-5 py-3 whitespace-nowrap">Animal</th>
+                      <th className="font-medium px-3 py-3 whitespace-nowrap">Espécie</th>
+                      <th className="font-medium px-3 py-3 whitespace-nowrap">Estado</th>
+                      <th className="font-medium px-3 py-3 whitespace-nowrap">Última alteração</th>
+                      <th className="font-medium px-5 py-3 whitespace-nowrap text-right">Entrada</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dashboard.filaAtendimento.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-5 py-8 text-center text-(--text-secondary)">
+                          Nenhum animal na fila de consulta.
+                        </td>
+                      </tr>
+                    )}
+                    {dashboard.filaAtendimento.map((row: AnimalFila) => (
+                      <tr
+                        key={row.id}
+                        className="border-b border-(--light-gray)/10 last:border-0 hover:bg-(--background-first-layer)/80"
+                      >
+                        <td className="px-5 py-3.5 font-medium text-(--text-primary)">{row.nome}</td>
+                        <td className="px-3 py-3.5 text-(--text-secondary)">{row.especie}</td>
+                        <td className="px-3 py-3.5">
+                          <span className={`${estadoBadgeClass(row.estadoNome)}`}>
+                            <span className={`${estadoDotClass(row.estadoNome)}`} aria-hidden />
+                            <span className="truncate max-w-[10rem]">{row.estadoNome}</span>
+                          </span>
+                        </td>
+                        <td className="px-3 py-3.5 text-(--text-secondary) tabular-nums whitespace-nowrap">
+                          {formatDateTimeBR(row.estadoAlteradoEm)}
+                        </td>
+                        <td className="px-5 py-3.5 text-right tabular-nums text-(--text-secondary)">
+                          {formatDateBR(row.dataEntrada)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div
+              className="
+                rounded-2xl
+                bg-(--background-second-layer)
+                border border-(--light-gray)/25
+                shadow-sm overflow-hidden
+              "
+            >
+              <div className="px-5 py-4 border-b border-(--light-gray)/20">
+                <h2 className="text-lg font-semibold text-(--text-primary)">Cadastrados hoje</h2>
+              </div>
+              <ul className="divide-y divide-(--light-gray)/15 p-3 space-y-2">
+                {dashboard.cadastrosHoje.length === 0 && (
+                  <li className="px-3 py-6 text-center text-sm text-(--text-secondary)">
+                    Nenhum cadastro hoje.
+                  </li>
+                )}
+                {dashboard.cadastrosHoje.map((item) => (
+                  <li
+                    key={item.id}
+                    className="
+                      flex items-center gap-3 rounded-xl p-3
+                      bg-(--background-first-layer)/50
+                      hover:bg-(--background-first-layer) transition-colors
+                    "
+                  >
+                    <div
+                      className="
+                        flex h-11 w-11 shrink-0 items-center justify-center rounded-lg
+                        bg-(--light-green) text-white
+                      "
+                      aria-hidden
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 10.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm4.5 2c-.8 0-1.5-.7-1.5-1.5S15.7 9.5 16.5 9.5 18 10.2 18 11s-.7 1.5-1.5 1.5zm-9 0C6.7 12.5 6 11.8 6 11s.7-1.5 1.5-1.5S9 10.2 9 11s-.7 1.5-1.5 1.5z" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-(--text-primary) truncate">{item.nome}</p>
+                      <p className="text-xs text-(--text-secondary) truncate">{item.tipoRaca}</p>
+                    </div>
+                    <span className="text-xs tabular-nums text-(--text-secondary) shrink-0">{item.horario}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }

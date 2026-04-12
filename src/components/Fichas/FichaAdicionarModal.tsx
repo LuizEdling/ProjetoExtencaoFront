@@ -1,7 +1,9 @@
 import axios from "axios";
 import { useEffect, useId, useRef, useState } from "react";
-import { createAnimal } from "../../services/animalsApi";
-import { SEXOS_ANIMAL, type SexoAnimal } from "../../types/animalFicha";
+import { isEstadoAdotado } from "../../lib/isEstadoAdotado";
+import { createAnimal, updateAnimal } from "../../services/animalsApi";
+import type { AnimalEstadoApiRow } from "../../services/animalStatesApi";
+import { SEXOS_ANIMAL, type AnimalFicha, type SexoAnimal } from "../../types/animalFicha";
 import CreatableCatalogCombobox from "./CreatableCatalogCombobox";
 
 const ESPECIES_PADRAO = ["Gato", "Cachorro"] as const;
@@ -14,7 +16,14 @@ const PESO_MAX = 200;
 type Props = {
   open: boolean;
   onClose: () => void;
-  onCreated: () => Promise<void>;
+  onSaved: (detail: {
+    action: "create" | "update";
+    adoptedCelebration?: boolean;
+    /** Nome do animal (só quando adoptedCelebration). */
+    animalNome?: string;
+  }) => Promise<void>;
+  animalToEdit: AnimalFicha | null;
+  estados: AnimalEstadoApiRow[];
 };
 
 type FormState = {
@@ -28,9 +37,16 @@ type FormState = {
   cor: string;
   data_entrada: string;
   observacoes: string;
+  animal_state_id: string;
 };
 
-function emptyForm(): FormState {
+function defaultEstadoId(estados: AnimalEstadoApiRow[]): string {
+  const row = estados.find((e) => e.nome === "Esperando consulta");
+  if (row) return String(row.id);
+  return estados[0] != null ? String(estados[0].id) : "";
+}
+
+function emptyForm(estados: AnimalEstadoApiRow[]): FormState {
   return {
     nome: "",
     raca: "",
@@ -42,10 +58,33 @@ function emptyForm(): FormState {
     cor: "",
     data_entrada: "",
     observacoes: "",
+    animal_state_id: defaultEstadoId(estados),
+  };
+}
+
+function fichaToFormState(a: AnimalFicha): FormState {
+  const sid = a.estado.id && a.estado.id !== "0" ? a.estado.id : "";
+  return {
+    nome: a.nome,
+    raca: a.raca,
+    data_ficha: a.data,
+    especie: a.especie,
+    sexo: a.sexo,
+    idade: String(a.idade),
+    peso: String(a.peso),
+    cor: a.cor,
+    data_entrada: a.dataEntrada,
+    observacoes: a.observacoes,
+    animal_state_id: sid,
   };
 }
 
 function validateForm(form: FormState): string | null {
+  const sid = form.animal_state_id.trim();
+  if (!/^\d+$/.test(sid)) {
+    return "Selecione o estado do animal.";
+  }
+
   const dataFicha = form.data_ficha.trim();
   if (!dataFicha) {
     return "Informe a data da ficha.";
@@ -96,18 +135,24 @@ function fieldError(err: unknown): string {
   return "Não foi possível salvar.";
 }
 
-export default function FichaAdicionarModal({ open, onClose, onCreated }: Props) {
+export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEdit, estados }: Props) {
   const titleId = useId();
   const firstFieldRef = useRef<HTMLInputElement>(null);
-  const [form, setForm] = useState<FormState>(emptyForm);
+  const [form, setForm] = useState<FormState>(() => emptyForm([]));
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const isEdit = animalToEdit != null;
+
   useEffect(() => {
     if (!open) return;
-    setForm(emptyForm());
     setFormError(null);
-  }, [open]);
+    if (animalToEdit) {
+      setForm(fichaToFormState(animalToEdit));
+    } else {
+      setForm(emptyForm(estados));
+    }
+  }, [open, animalToEdit, estados]);
 
   useEffect(() => {
     if (!open) return;
@@ -122,7 +167,7 @@ export default function FichaAdicionarModal({ open, onClose, onCreated }: Props)
     if (!open) return;
     const t = window.setTimeout(() => firstFieldRef.current?.focus(), 0);
     return () => window.clearTimeout(t);
-  }, [open]);
+  }, [open, animalToEdit]);
 
   if (!open) return null;
 
@@ -141,22 +186,49 @@ export default function FichaAdicionarModal({ open, onClose, onCreated }: Props)
 
     const idadeNum = parseInt(form.idade.trim(), 10);
     const pesoNum = parseFloat(form.peso.trim().replace(",", "."));
+    const animalStateId = parseInt(form.animal_state_id.trim(), 10);
+    const estadoRow = estados.find((s) => s.id === animalStateId);
+    const nomeEstadoNovo = estadoRow?.nome ?? "";
+    const wasAdotado = animalToEdit ? isEstadoAdotado(animalToEdit.estado.nome) : false;
+    const nowAdotado = isEstadoAdotado(nomeEstadoNovo);
+    const adoptedCelebration = nowAdotado && !wasAdotado;
+    const animalNomeCelebration = adoptedCelebration
+      ? isEdit && animalToEdit
+        ? animalToEdit.nome
+        : form.nome.trim()
+      : undefined;
+
+    const payload = {
+      nome: form.nome.trim(),
+      raca: form.raca.trim(),
+      data_ficha: form.data_ficha.trim(),
+      especie: form.especie.trim(),
+      sexo: form.sexo as SexoAnimal,
+      idade: idadeNum,
+      peso: pesoNum,
+      cor: form.cor.trim(),
+      data_entrada: form.data_entrada.trim(),
+      observacoes: form.observacoes.trim(),
+      animal_state_id: animalStateId,
+    };
 
     setSubmitting(true);
     try {
-      await createAnimal({
-        nome: form.nome.trim(),
-        raca: form.raca.trim(),
-        data_ficha: form.data_ficha.trim(),
-        especie: form.especie.trim(),
-        sexo: form.sexo as SexoAnimal,
-        idade: idadeNum,
-        peso: pesoNum,
-        cor: form.cor.trim(),
-        data_entrada: form.data_entrada.trim(),
-        observacoes: form.observacoes.trim(),
-      });
-      await onCreated();
+      if (isEdit && animalToEdit) {
+        await updateAnimal(animalToEdit.id, payload);
+        await onSaved({
+          action: "update",
+          adoptedCelebration,
+          animalNome: animalNomeCelebration,
+        });
+      } else {
+        await createAnimal(payload);
+        await onSaved({
+          action: "create",
+          adoptedCelebration,
+          animalNome: animalNomeCelebration,
+        });
+      }
       onClose();
     } catch (err) {
       setFormError(fieldError(err));
@@ -186,10 +258,10 @@ export default function FichaAdicionarModal({ open, onClose, onCreated }: Props)
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id={titleId} className="text-xl font-bold text-(--green-title)">
-          Adicionar ficha
+          {isEdit ? "Editar ficha" : "Adicionar ficha"}
         </h2>
         <p className="mt-1 text-sm text-(--text-secondary)">
-          Preencha os dados do animal.
+          {isEdit ? "Atualize os dados do animal." : "Preencha os dados do animal."}
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-3">
@@ -247,6 +319,26 @@ export default function FichaAdicionarModal({ open, onClose, onCreated }: Props)
                     {s}
                   </option>
                 ))}
+              </select>
+            </label>
+            <label className="block sm:col-span-2">
+              <span className="form-label">Estado no abrigo</span>
+              <select
+                required
+                value={form.animal_state_id}
+                onChange={(e) => update("animal_state_id", e.target.value)}
+                className="mt-1 form-control"
+                disabled={estados.length === 0}
+              >
+                {estados.length === 0 ? (
+                  <option value="">Carregando estados…</option>
+                ) : (
+                  estados.map((s) => (
+                    <option key={s.id} value={String(s.id)}>
+                      {s.nome}
+                    </option>
+                  ))
+                )}
               </select>
             </label>
             <label className="block">
@@ -339,7 +431,7 @@ export default function FichaAdicionarModal({ open, onClose, onCreated }: Props)
                 focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
               "
             >
-              {submitting ? "Salvando…" : "Salvar ficha"}
+              {submitting ? "Salvando…" : isEdit ? "Atualizar ficha" : "Salvar ficha"}
             </button>
           </div>
         </form>

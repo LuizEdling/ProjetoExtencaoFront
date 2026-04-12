@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { estadoBadgeClass, estadoDotClass } from "../../constants/animalEstadoStyles";
 import { formatDateBR, formatPesoKg } from "../../lib/formatFicha";
 import type { AnimalFicha } from "../../types/animalFicha";
 
@@ -52,6 +53,15 @@ export default function FichaDetalheModal({ animal, onClose }: Props) {
   if (!animal) return null;
 
   const rows: { label: string; value: ReactNode; valueClassName?: string }[] = [
+    {
+      label: "Estado",
+      value: (
+        <span className={`${estadoBadgeClass(animal.estado.nome)}`}>
+          <span className={`${estadoDotClass(animal.estado.nome)}`} aria-hidden />
+          {animal.estado.nome}
+        </span>
+      ),
+    },
     { label: "Data (ficha)", value: formatDateBR(animal.data) },
     { label: "Sexo", value: animal.sexo },
     { label: "Idade", value: `${animal.idade} anos` },

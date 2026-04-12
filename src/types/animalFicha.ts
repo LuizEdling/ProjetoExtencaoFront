@@ -2,6 +2,11 @@ export type SexoAnimal = "Macho" | "Fêmea";
 
 export const SEXOS_ANIMAL: readonly SexoAnimal[] = ["Macho", "Fêmea"];
 
+export interface AnimalEstadoInfo {
+  id: string;
+  nome: string;
+}
+
 export interface AnimalFicha {
   id: string;
   nome: string;
@@ -15,4 +20,5 @@ export interface AnimalFicha {
   cor: string;
   dataEntrada: string;
   observacoes: string;
+  estado: AnimalEstadoInfo;
 }

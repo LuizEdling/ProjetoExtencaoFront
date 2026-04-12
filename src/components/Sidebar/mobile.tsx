@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { NAV_LINKS } from "../../constants/nav-links";
 import ThemeToggle from "./ThemeToggle";
 
@@ -27,11 +27,18 @@ export default function SidebarMobile() {
           border-b border-(--light-gray)/20
         "
       >
-        <img
-          src="/favicon.ico"
-          alt="Projeto Extensão"
-          className="w-10 h-10 object-contain rounded-lg"
-        />
+        <Link
+          to="/painel"
+          className="inline-flex rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)"
+          aria-label="Ir para o painel"
+          onClick={() => setIsOpen(false)}
+        >
+          <img
+            src="/favicon.ico"
+            alt="Projeto Extensão"
+            className="w-10 h-10 object-contain rounded-lg"
+          />
+        </Link>
 
         <button
           type="button"
@@ -89,11 +96,18 @@ export default function SidebarMobile() {
       >
         <div>
           <div className="flex items-center justify-between mb-10">
-            <img
-              src="/favicon.ico"
-              alt="Projeto Extensão"
-              className="w-14 h-14 object-contain rounded-lg"
-            />
+            <Link
+              to="/painel"
+              className="inline-flex rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)"
+              aria-label="Ir para o painel"
+              onClick={() => setIsOpen(false)}
+            >
+              <img
+                src="/favicon.ico"
+                alt="Projeto Extensão"
+                className="w-14 h-14 object-contain rounded-lg"
+              />
+            </Link>
           </div>
 
           <nav>

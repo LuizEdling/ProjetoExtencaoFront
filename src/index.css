@@ -139,6 +139,10 @@ body{
   --light-gray: #4a5568;
 }
 
+.dark img[src^="/icons/sidebar/"] {
+  filter: invert(1);
+}
+
 /* —— Form (shared by fichas modals + combobox) —— */
 .form-label {
   display: block;
@@ -262,6 +266,63 @@ textarea.form-control {
   animation: form-alert-in 0.25s ease-out both;
 }
 
+@keyframes flash-banner-celebrate {
+  0% {
+    transform: scale(0.96);
+  }
+  35% {
+    transform: scale(1.02) rotate(-0.5deg);
+  }
+  65% {
+    transform: scale(1.01) rotate(0.4deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes celebration-confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-72px) translateX(var(--celebrate-tx, 0px)) rotate(240deg) scale(0.55);
+  }
+}
+
+.flash-banner-celebrate {
+  animation: flash-banner-celebrate 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.celebration-confetti-wrap {
+  pointer-events: none;
+}
+
+.celebration-confetti-piece {
+  position: absolute;
+  bottom: 40%;
+  width: 7px;
+  height: 11px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: celebration-confetti-fall 2.35s ease-out forwards;
+  background: var(--highlighted-text);
+}
+
+.celebration-confetti-piece:nth-child(odd) {
+  background: var(--success-advice);
+  height: 9px;
+}
+
+.celebration-confetti-piece:nth-child(3n) {
+  background: var(--light-green);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .modal-backdrop-enter,
   .modal-panel-enter,
@@ -269,5 +330,14 @@ textarea.form-control {
   .combobox-list-enter,
   .form-alert-enter {
     animation: none;
+  }
+
+  .flash-banner-celebrate {
+    animation: none;
+  }
+
+  .celebration-confetti-piece {
+    animation: none;
+    opacity: 0;
   }
 }

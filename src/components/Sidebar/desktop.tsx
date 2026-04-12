@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { NAV_LINKS } from "../../constants/nav-links";
 import ThemeToggle from "./ThemeToggle";
 
@@ -25,11 +25,17 @@ export default function SidebarDesktop() {
     >
       <div>
         <div className="mb-10">
-          <img
-            src="/favicon.ico"
-            alt="Projeto Extensão"
-            className="w-12 h-12 object-contain rounded-lg"
-          />
+          <Link
+            to="/painel"
+            className="inline-flex rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)"
+            aria-label="Ir para o painel"
+          >
+            <img
+              src="/favicon.ico"
+              alt="Projeto Extensão"
+              className="w-12 h-12 object-contain rounded-lg"
+            />
+          </Link>
         </div>
 
         <nav>
