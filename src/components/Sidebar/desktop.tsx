@@ -1,5 +1,6 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { NAV_LINKS } from "../../constants/nav-links";
+import { logoutRequest } from "../../lib/authApi";
 import ThemeToggle from "./ThemeToggle";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -12,6 +13,13 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   ].join(" ");
 
 export default function SidebarDesktop() {
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    await logoutRequest();
+    navigate("/", { replace: true });
+  }
+
   return (
     <section
       className="
@@ -58,18 +66,20 @@ export default function SidebarDesktop() {
         <div className="flex flex-col gap-1">
           <ThemeToggle />
 
-          <NavLink
-            to="/"
+          <button
+            type="button"
+            onClick={handleLogout}
             className="
               flex flex-row items-center gap-2
               p-2 rounded-[12px]
               text-(--text-primary)
               hover:bg-(--highlighted-text)/40 transition-all
+              w-full text-left cursor-pointer
             "
           >
             <img src="/icons/sidebar/logout.svg" alt="" className="w-5 h-5" />
             <span>Sair</span>
-          </NavLink>
+          </button>
         </div>
       </div>
     </section>

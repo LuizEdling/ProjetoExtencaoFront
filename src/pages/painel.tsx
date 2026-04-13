@@ -1,4 +1,4 @@
-import axios from "axios";
+import { isAxiosError } from "axios";
 import { useEffect, useMemo, useState } from "react";
 import { estadoBadgeClass, estadoDotClass } from "../constants/animalEstadoStyles";
 import { formatDateBR, formatDateTimeBR } from "../lib/formatFicha";
@@ -6,7 +6,7 @@ import { fetchPainel } from "../services/painelApi";
 import type { AnimalFila, PainelDashboardData, ResumoCardData } from "../types/painel";
 
 function loadErrorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
+  if (isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;
     return data?.message ?? err.message ?? "Erro ao carregar o painel.";
   }

@@ -1,4 +1,4 @@
-import axios from "axios";
+import { isAxiosError } from "axios";
 import { useEffect, useId, useRef, useState } from "react";
 import { isEstadoAdotado } from "../../lib/isEstadoAdotado";
 import { createAnimal, updateAnimal } from "../../services/animalsApi";
@@ -127,7 +127,7 @@ function validateForm(form: FormState): string | null {
 }
 
 function fieldError(err: unknown): string {
-  if (axios.isAxiosError(err)) {
+  if (isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;
     return data?.message ?? err.message ?? "Não foi possível salvar.";
   }

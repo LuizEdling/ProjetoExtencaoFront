@@ -1,5 +1,5 @@
-import axios from "axios";
 import { getAnimalByIdEndpoint, getAnimalsEndpoint } from "../lib/apiBase";
+import { apiClient } from "../lib/apiClient";
 import { toIsoDateOnly } from "../lib/formatFicha";
 import type { AnimalEstadoInfo, AnimalFicha, SexoAnimal } from "../types/animalFicha";
 
@@ -87,7 +87,7 @@ export function mapApiToFicha(row: AnimalFichaApi): AnimalFicha {
 
 export async function fetchAnimals(): Promise<AnimalFicha[]> {
   const url = getAnimalsEndpoint();
-  const { data } = await axios.get<AnimalFichaApi[]>(url);
+  const { data } = await apiClient.get<AnimalFichaApi[]>(url);
   const list = Array.isArray(data) ? data : [];
   return list.map((row, index) => {
     const mapped = mapApiToFicha(row);
@@ -100,12 +100,12 @@ export async function fetchAnimals(): Promise<AnimalFicha[]> {
 
 export async function createAnimal(body: CreateAnimalPayload): Promise<void> {
   const url = getAnimalsEndpoint();
-  await axios.post(url, body);
+  await apiClient.post(url, body);
 }
 
 async function patchAnimalRaw(animalId: string, body: Record<string, unknown>): Promise<AnimalFicha> {
   const url = getAnimalByIdEndpoint(animalId);
-  const { data } = await axios.patch<AnimalFichaApi>(url, body);
+  const { data } = await apiClient.patch<AnimalFichaApi>(url, body);
   return mapApiToFicha(data);
 }
 
@@ -115,7 +115,7 @@ export async function updateAnimal(animalId: string, body: UpdateAnimalPayload):
 
 export async function deleteAnimal(animalId: string): Promise<void> {
   const url = getAnimalByIdEndpoint(animalId);
-  await axios.delete(url);
+  await apiClient.delete(url);
 }
 
 export async function patchAnimalState(animalId: string, animalStateId: number): Promise<AnimalFicha> {

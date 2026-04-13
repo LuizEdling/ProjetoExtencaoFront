@@ -1,5 +1,5 @@
-import axios from "axios";
 import { getPainelEndpoint } from "../lib/apiBase";
+import { apiClient } from "../lib/apiClient";
 import type {
   AnimalFila,
   CadastroHojeItem,
@@ -83,7 +83,7 @@ function mapCadastro(row: PainelCadastroApi): CadastroHojeItem {
 
 export async function fetchPainel(): Promise<PainelDashboardData> {
   const url = getPainelEndpoint();
-  const { data } = await axios.get<PainelApiResponse>(url);
+  const { data } = await apiClient.get<PainelApiResponse>(url);
   return {
     resumos: Array.isArray(data.resumos) ? data.resumos.map(mapResumo) : [],
     filaAtendimento: Array.isArray(data.fila_atendimento) ? data.fila_atendimento.map(mapFila) : [],

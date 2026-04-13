@@ -7,7 +7,7 @@ export default function Login() {
 
   return (
     <div className="bg-(--background-first-layer)">
-      {isDesktop ? <MobileLoginForm /> : <DesktopLoginForm />}
+      {isDesktop ? <DesktopLoginForm /> : <MobileLoginForm />}
     </div>
   );
 }

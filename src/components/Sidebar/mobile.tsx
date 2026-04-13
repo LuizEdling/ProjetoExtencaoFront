@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { NAV_LINKS } from "../../constants/nav-links";
+import { logoutRequest } from "../../lib/authApi";
 import ThemeToggle from "./ThemeToggle";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -14,6 +15,13 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 export default function SidebarMobile() {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    setIsOpen(false);
+    await logoutRequest();
+    navigate("/", { replace: true });
+  }
 
   return (
     <>
@@ -133,18 +141,19 @@ export default function SidebarMobile() {
           <hr className="mb-4 border-(--light-gray)/40" />
           <div className="flex flex-col gap-1">
             <ThemeToggle />
-            <NavLink
-              to="/"
-              onClick={() => setIsOpen(false)}
+            <button
+              type="button"
+              onClick={handleLogout}
               className="
                 flex flex-row items-center gap-2 p-2 rounded-[12px]
                 text-(--text-primary)
                 hover:bg-(--highlighted-text)/40 transition-all
+                w-full text-left cursor-pointer
               "
             >
               <img src="/icons/sidebar/logout.svg" alt="" className="w-5 h-5" />
               <span>Sair</span>
-            </NavLink>
+            </button>
           </div>
         </div>
       </aside>

@@ -1,4 +1,4 @@
-import axios from "axios";
+import { isAxiosError } from "axios";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import FlashBanner, { type FlashPayload } from "../components/FlashBanner";
 import AnimalEstadoSelect from "../components/Fichas/AnimalEstadoSelect";
@@ -16,7 +16,7 @@ function normalize(s: string) {
 }
 
 function loadErrorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
+  if (isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;
     return data?.message ?? err.message ?? "Erro ao carregar os animais.";
   }
@@ -29,7 +29,7 @@ function adoptionCelebrationMessage(nome: string): string {
 }
 
 function deleteErrorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
+  if (isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;
     return data?.message ?? err.message ?? "Não foi possível excluir a ficha.";
   }

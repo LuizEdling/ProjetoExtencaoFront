@@ -1,5 +1,6 @@
-import { Routes, Route } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import AppLayout from "../layouts/AppLayout";
+import RequireAuth from "../components/RequireAuth";
 import Login from "../pages/login";
 import Adocoes from "../pages/adocoes";
 import Agenda from "../pages/agenda";
@@ -13,13 +14,15 @@ export default function RoutesApp() {
     <Routes>
       <Route path="/" element={<Login />} />
 
-      <Route element={<AppLayout />}>
-        <Route path="/painel" element={<Painel />} />
-        <Route path="/fichas" element={<Fichas />} />
-        <Route path="/agenda" element={<Agenda />} />
-        <Route path="/adocoes" element={<Adocoes />} />
-        <Route path="/gastos" element={<Gastos />} />
-        <Route path="/relatorios" element={<Relatorios />} />
+      <Route element={<RequireAuth />}>
+        <Route element={<AppLayout />}>
+          <Route path="/painel" element={<Painel />} />
+          <Route path="/fichas" element={<Fichas />} />
+          <Route path="/agenda" element={<Agenda />} />
+          <Route path="/adocoes" element={<Adocoes />} />
+          <Route path="/gastos" element={<Gastos />} />
+          <Route path="/relatorios" element={<Relatorios />} />
+        </Route>
       </Route>
     </Routes>
   );

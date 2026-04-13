@@ -1,4 +1,4 @@
-import axios from "axios";
+import { isAxiosError } from "axios";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { estadoBorderClass, estadoDotClass } from "../../constants/animalEstadoStyles";
@@ -22,7 +22,7 @@ type MenuBox = {
 };
 
 function loadPatchError(err: unknown): string {
-  if (axios.isAxiosError(err)) {
+  if (isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;
     return data?.message ?? err.message ?? "Não foi possível atualizar o estado.";
   }
