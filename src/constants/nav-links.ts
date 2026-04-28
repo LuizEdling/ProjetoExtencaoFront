@@ -2,7 +2,7 @@ export const NAV_LINKS = [
   { 
     name: "Painel",
     icoPath: "/icons/sidebar/painel.svg",
-    path: "/"
+    path: "/painel"
   },
   { 
     name: "Fichas",
