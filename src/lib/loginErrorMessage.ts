@@ -6,6 +6,7 @@ const CREDENTIALS_MESSAGE =
 const SERVER_OR_UNKNOWN_MESSAGE = "Algum erro ocorreu";
 
 export function getLoginErrorMessage(error: unknown): string {
+  console.log(error);
   if (isAxiosError(error) && error.response?.status === 422) {
     return CREDENTIALS_MESSAGE;
   }

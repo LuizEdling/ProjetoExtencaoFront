@@ -2,7 +2,9 @@ import { isAxiosError } from "axios";
 import { useEffect, useMemo, useState } from "react";
 import { estadoBadgeClass, estadoDotClass } from "../constants/animalEstadoStyles";
 import { formatDateBR, formatDateTimeBR } from "../lib/formatFicha";
+import { fetchLembretes } from "../services/lembretesApi";
 import { fetchPainel } from "../services/painelApi";
+import type { Lembrete } from "../types/lembrete";
 import type { AnimalFila, PainelDashboardData, ResumoCardData } from "../types/painel";
 
 function loadErrorMessage(err: unknown): string {
@@ -52,8 +54,57 @@ function ResumoIcon({ icon, className }: { icon: ResumoCardData["icon"]; classNa
   }
 }
 
+function diasRestantes(data: string) {
+  const [ano, mes, dia] = data.slice(0, 10).split("-").map(Number);
+
+  const hoje = new Date();
+  const hojeSemHora = new Date(
+    hoje.getFullYear(),
+    hoje.getMonth(),
+    hoje.getDate()
+  );
+
+  const alvo = new Date(ano, mes - 1, dia);
+
+  return Math.ceil(
+    (alvo.getTime() - hojeSemHora.getTime()) / (1000 * 60 * 60 * 24)
+  );
+}
+
+function temAlerta(lembrete: Lembrete) {
+  const dias = diasRestantes(lembrete.data);
+  return dias === 7 || dias === 3 || dias === 1;
+}
+
+function mensagemAlerta(dias: number) {
+  if (dias === 7) return "Falta 1 semana";
+  if (dias === 3) return "Faltam 3 dias";
+  if (dias === 1) return "Amanha";
+  return "";
+}
+
+function BellIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path d="M10.27 21a2 2 0 0 0 3.46 0" />
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+    </svg>
+  );
+}
+
 export default function Painel() {
   const [dashboard, setDashboard] = useState<PainelDashboardData | null>(null);
+  const [lembretes, setLembretes] = useState<Lembrete[]>([]);
+  const [alertasOpen, setAlertasOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -76,6 +127,24 @@ export default function Painel() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchLembretes()
+      .then((data) => {
+        if (!cancelled) {
+          setLembretes(data);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const legendaClass = useMemo(
     () => ({
       success: "text-(--success-advice)",
@@ -86,10 +155,40 @@ export default function Painel() {
   );
 
   const pendentesCount = dashboard?.filaAtendimento.length ?? 0;
+  const lembretesComAlerta = lembretes.filter(temAlerta);
 
   return (
-    <div className="max-w-7xl mx-auto w-full space-y-8">
-      <header className="flex flex-col gap-4">
+    <div className="relative max-w-7xl mx-auto w-full space-y-8">
+      <button
+        type="button"
+        onClick={() => setAlertasOpen(true)}
+        className="
+          absolute right-0 top-0
+          flex h-11 w-11 items-center justify-center
+          rounded-full border border-(--light-gray)/25
+          bg-(--background-second-layer)
+          text-(--green-title)
+          transition hover:bg-(--background-first-layer)
+        "
+        aria-label="Abrir notificacoes de lembretes"
+      >
+        <BellIcon />
+
+        {lembretesComAlerta.length > 0 && (
+          <span
+            className="
+              absolute -right-1 -top-1
+              flex h-5 min-w-5 items-center justify-center
+              rounded-full bg-(--error-advice)
+              px-1 text-xs font-bold text-white
+            "
+          >
+            {lembretesComAlerta.length}
+          </span>
+        )}
+      </button>
+
+      <header className="flex flex-col gap-4 pr-14">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-(--green-title) tracking-tight">
             Painel
@@ -257,6 +356,76 @@ export default function Painel() {
             </div>
           </section>
         </>
+      )}
+
+      {alertasOpen && (
+        <div className="fixed inset-0 z-20 flex items-start justify-center p-4 pt-20">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setAlertasOpen(false)}
+            aria-label="Fechar notificacoes"
+          />
+
+          <div
+            className="
+              relative z-10 w-full max-w-lg
+              rounded-2xl border border-(--light-gray)/25
+              bg-(--background-second-layer)
+              p-6 shadow-lg
+            "
+          >
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold text-(--green-title)">
+                Notificacoes
+              </h2>
+
+              <button
+                type="button"
+                onClick={() => setAlertasOpen(false)}
+                className="rounded-full px-3 py-1 hover:bg-(--background-first-layer)"
+              >
+                Fechar
+              </button>
+            </div>
+
+            {lembretesComAlerta.length === 0 ? (
+              <p className="text-sm text-(--text-secondary)">
+                Nenhum lembrete dentro dos prazos de alerta.
+              </p>
+            ) : (
+              <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+                {lembretesComAlerta.map((lembrete) => {
+                  const dias = diasRestantes(lembrete.data);
+
+                  return (
+                    <div
+                      key={lembrete.id}
+                      className="
+                        rounded-xl border border-(--light-gray)/25
+                        bg-(--background-first-layer)
+                        p-4
+                      "
+                    >
+                      <h3 className="font-semibold text-(--text-primary)">
+                        {lembrete.nome}
+                      </h3>
+                      <p className="text-sm text-(--text-secondary)">
+                        {lembrete.descricao}
+                      </p>
+                      <p className="mt-1 text-xs text-(--text-secondary)">
+                        Data: {lembrete.data}
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-(--error-advice)">
+                        {mensagemAlerta(dias)}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

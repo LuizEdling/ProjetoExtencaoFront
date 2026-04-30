@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Lembrete } from "../types/lembrete";
-import {
-  fetchLembretes,
-  deleteLembrete,
-} from "../services/lembretesApi";
-import LembreteModal from "../components/Lembretes/LembreteModal";
+import type { Lembrete } from "../../types/lembrete";
+import { fetchLembretes, deleteLembrete } from "../../services/lembretesApi";
+import LembreteModal from "./LembreteModal";
 
 function diasRestantes(data: string) {
   const [ano, mes, dia] = data.slice(0, 10).split("-").map(Number);
@@ -23,6 +20,11 @@ function diasRestantes(data: string) {
   );
 }
 
+function temAlerta(lembrete: Lembrete) {
+  const dias = diasRestantes(lembrete.data);
+  return dias === 7 || dias === 3 || dias === 1;
+}
+
 function mensagemAlerta(dias: number) {
   if (dias === 7) return "Falta 1 semana";
   if (dias === 3) return "Faltam 3 dias";
@@ -30,17 +32,32 @@ function mensagemAlerta(dias: number) {
   return "";
 }
 
-export default function Agenda() {
+function BellIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path d="M10.27 21a2 2 0 0 0 3.46 0" />
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+    </svg>
+  );
+}
+
+export default function LembretesPage() {
   const [data, setData] = useState<Lembrete[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [alertasOpen, setAlertasOpen] = useState(false);
   const [selected, setSelected] = useState<Lembrete | null>(null);
 
   const lembretesComAlerta = useMemo(() => {
-    return data.filter((lembrete) => {
-      const dias = diasRestantes(lembrete.data);
-      return dias === 7 || dias === 3 || dias === 1;
-    });
+    return data.filter(temAlerta);
   }, [data]);
 
   async function load() {
@@ -49,25 +66,25 @@ export default function Agenda() {
   }
 
   useEffect(() => {
-    let ignore = false;
+    let isMounted = true;
 
-    async function loadInitialData() {
-      const res = await fetchLembretes();
-
-      if (!ignore) {
-        setData(res);
-      }
-    }
-
-    loadInitialData();
+    fetchLembretes()
+      .then((res) => {
+        if (isMounted) {
+          setData(res);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+      });
 
     return () => {
-      ignore = true;
+      isMounted = false;
     };
   }, []);
 
   async function handleDelete(id: number) {
-    if (!confirm("Deseja excluir este lembrete?")) return;
+    if (!confirm("Excluir lembrete?")) return;
 
     await deleteLembrete(id);
     await load();
@@ -97,14 +114,14 @@ export default function Agenda() {
         className="
           absolute left-6 top-6
           flex h-11 w-11 items-center justify-center
-          rounded-full bg-(--background-second-layer)
-          border border-(--light-gray)/25
+          rounded-full border border-(--light-gray)/25
+          bg-(--background-second-layer)
           text-(--green-title)
-          hover:bg-(--background-first-layer)
+          transition hover:bg-(--background-first-layer)
         "
         aria-label="Abrir notificacoes de lembretes"
       >
-        <span className="text-xl">!</span>
+        <BellIcon />
 
         {lembretesComAlerta.length > 0 && (
           <span
@@ -120,12 +137,11 @@ export default function Agenda() {
         )}
       </button>
 
-      <div className="mb-6 flex items-center justify-between pl-14">
+      <div className="mb-6 flex items-center justify-between gap-4 pl-14">
         <div>
           <h1 className="text-2xl font-bold text-(--green-title)">
             Lembretes
           </h1>
-
           <p className="text-sm text-(--text-secondary)">
             Gerencie seus lembretes e pendencias
           </p>
@@ -133,15 +149,9 @@ export default function Agenda() {
 
         <button
           onClick={handleOpenCreate}
-          className="
-            rounded-full px-6 py-2.5
-            bg-(--light-green) text-sm font-medium text-white
-            transition-all duration-200
-            hover:opacity-90
-            active:scale-[0.98]
-          "
+          className="rounded-full bg-(--light-green) px-4 py-2 text-white"
         >
-          + Novo lembrete
+          Novo
         </button>
       </div>
 
@@ -153,36 +163,26 @@ export default function Agenda() {
         ) : (
           data.map((l) => {
             const dias = diasRestantes(l.data);
-            const alerta = dias === 7 || dias === 3 || dias === 1;
+            const alerta = temAlerta(l);
 
             return (
               <div
                 key={l.id}
                 className="
-                  rounded-2xl border border-(--light-gray)/25
+                  rounded-xl border border-(--light-gray)/25
                   bg-(--background-second-layer)
-                  p-4 shadow-sm
+                  p-4
                 "
               >
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex justify-between gap-4">
                   <div>
-                    <h2 className="font-semibold text-(--text-primary)">
-                      {l.nome}
-                    </h2>
-
+                    <strong className="text-(--text-primary)">{l.nome}</strong>
                     <p className="text-sm text-(--text-secondary)">
                       {l.descricao}
                     </p>
-
                     <p className="mt-1 text-xs text-(--text-secondary)">
                       Data: {l.data}
                     </p>
-
-                    {alerta && (
-                      <p className="mt-2 text-sm text-(--error-advice)">
-                        {mensagemAlerta(dias)}
-                      </p>
-                    )}
                   </div>
 
                   <div className="flex gap-2">
@@ -192,7 +192,6 @@ export default function Agenda() {
                     >
                       Editar
                     </button>
-
                     <button
                       onClick={() => handleDelete(l.id)}
                       className="rounded-full px-3 py-1 hover:bg-(--background-first-layer)"
@@ -201,6 +200,12 @@ export default function Agenda() {
                     </button>
                   </div>
                 </div>
+
+                {alerta && (
+                  <p className="mt-2 text-sm font-medium text-(--error-advice)">
+                    {mensagemAlerta(dias)}
+                  </p>
+                )}
               </div>
             );
           })
@@ -209,9 +214,11 @@ export default function Agenda() {
 
       {alertasOpen && (
         <div className="fixed inset-0 z-20 flex items-start justify-center p-4 pt-20">
-          <div
+          <button
+            type="button"
             className="absolute inset-0 bg-black/40"
             onClick={() => setAlertasOpen(false)}
+            aria-label="Fechar notificacoes"
           />
 
           <div
@@ -222,12 +229,13 @@ export default function Agenda() {
               p-6 shadow-lg
             "
           >
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex items-center justify-between gap-4">
               <h2 className="text-xl font-bold text-(--green-title)">
                 Notificacoes
               </h2>
 
               <button
+                type="button"
                 onClick={() => setAlertasOpen(false)}
                 className="rounded-full px-3 py-1 hover:bg-(--background-first-layer)"
               >
@@ -240,7 +248,7 @@ export default function Agenda() {
                 Nenhum lembrete dentro dos prazos de alerta.
               </p>
             ) : (
-              <div className="space-y-3">
+              <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
                 {lembretesComAlerta.map((lembrete) => {
                   const dias = diasRestantes(lembrete.data);
 
@@ -258,21 +266,19 @@ export default function Agenda() {
                           <h3 className="font-semibold text-(--text-primary)">
                             {lembrete.nome}
                           </h3>
-
                           <p className="text-sm text-(--text-secondary)">
                             {lembrete.descricao}
                           </p>
-
                           <p className="mt-1 text-xs text-(--text-secondary)">
                             Data: {lembrete.data}
                           </p>
-
                           <p className="mt-2 text-sm font-medium text-(--error-advice)">
                             {mensagemAlerta(dias)}
                           </p>
                         </div>
 
                         <button
+                          type="button"
                           onClick={() => handleOpenEdit(lembrete)}
                           className="rounded-full px-3 py-1 hover:bg-(--background-second-layer)"
                         >
