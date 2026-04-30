@@ -10,7 +10,7 @@ export const NAV_LINKS = [
     path: "/fichas"
   },
   { 
-    name: "Agenda",
+    name: "Lembretes",
     icoPath: "/icons/sidebar/agenda.svg",
     path: "/agenda"
   },
