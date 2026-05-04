@@ -39,7 +39,7 @@ export default function SidebarDesktop() {
             aria-label="Ir para o painel"
           >
             <img
-              src="/favicon.ico"
+              src="/logo.webp"
               alt="Projeto Extensão"
               className="w-12 h-12 object-contain rounded-lg"
             />
