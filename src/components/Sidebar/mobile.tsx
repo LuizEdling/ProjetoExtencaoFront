@@ -42,7 +42,7 @@ export default function SidebarMobile() {
           onClick={() => setIsOpen(false)}
         >
           <img
-            src="/favicon.ico"
+            src="/logo.webp"
             alt="Projeto Extensão"
             className="w-10 h-10 object-contain rounded-lg"
           />
@@ -111,7 +111,7 @@ export default function SidebarMobile() {
               onClick={() => setIsOpen(false)}
             >
               <img
-                src="/favicon.ico"
+                src="/logo.webp"
                 alt="Projeto Extensão"
                 className="w-14 h-14 object-contain rounded-lg"
               />
