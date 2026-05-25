@@ -69,10 +69,8 @@ export async function openContratoPdfInNewTab(adocaoId: number): Promise<void> {
   const blob = await fetchContratoPdfBlob(adocaoId);
   const typed = blob.type && blob.type.includes("pdf") ? blob : new Blob([blob], { type: "application/pdf" });
   const objectUrl = URL.createObjectURL(typed);
-  if (!window.open(objectUrl, "_blank", "noopener,noreferrer")) {
-    URL.revokeObjectURL(objectUrl);
-    throw new Error("Não foi possível abrir o visualizador. Verifique se os pop-ups estão permitidos.");
-  }
+  window.open(objectUrl, "_blank", "noopener,noreferrer")
+  
   window.setTimeout(() => {
     URL.revokeObjectURL(objectUrl);
   }, 120_000);
