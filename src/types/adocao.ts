@@ -5,6 +5,12 @@ export type AdocaoListItem = {
   adotante_id: number;
   data_adocao: string;
   doc_adocao?: string | null;
+  contratacao?: {
+    id: number;
+    adocao_id: number;
+    created_at?: string;
+    updated_at?: string;
+  } | null;
   animal: {
     id: number;
     nome: string;
