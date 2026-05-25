@@ -7,6 +7,7 @@ export interface AnimalFichaApi {
   id?: string | number;
   nome: string;
   raca: string;
+  microchip?: string | null;
   data_ficha: string;
   especie: string;
   sexo: SexoAnimal | string;
@@ -20,11 +21,15 @@ export interface AnimalFichaApi {
     id: number;
     nome: string;
   };
+  vermifugado?: boolean | number | string | null;
+  vacinado?: boolean | number | string | null;
+  castrado?: boolean | number | string | null;
 }
 
 export interface CreateAnimalPayload {
   nome: string;
   raca: string;
+  microchip?: string | null;
   data_ficha: string;
   especie: string;
   sexo: SexoAnimal;
@@ -35,10 +40,24 @@ export interface CreateAnimalPayload {
   observacoes: string;
   /** Se omitido, o backend usa o estado padrão (ex.: Esperando consulta). */
   animal_state_id?: number;
+  vermifugado?: boolean;
+  vacinado?: boolean;
+  castrado?: boolean;
 }
 
 /** Corpo completo para PATCH ao editar ficha (ativa validação “edição completa” na API). */
 export type UpdateAnimalPayload = CreateAnimalPayload & { animal_state_id: number };
+
+function parseBool(value: unknown): boolean {
+  if (value === true || value === 1 || value === "1") return true;
+  if (value === false || value === 0 || value === "0") return false;
+  if (typeof value === "string") {
+    const s = value.trim().toLowerCase();
+    if (s === "true") return true;
+    if (s === "false") return false;
+  }
+  return false;
+}
 
 function parseIdade(value: unknown): number {
   const n = typeof value === "number" ? value : parseInt(String(value ?? "").trim(), 10);
@@ -69,10 +88,15 @@ function parseEstado(row: AnimalFichaApi): AnimalEstadoInfo {
 }
 
 export function mapApiToFicha(row: AnimalFichaApi): AnimalFicha {
+  const chip = row.microchip;
+  const microchip =
+    chip == null || String(chip).trim() === "" ? "" : String(chip).replace(/\D/g, "").slice(0, 15);
+
   return {
     id: row.id != null ? String(row.id) : "",
     nome: row.nome ?? "",
     raca: row.raca ?? "",
+    microchip,
     data: toIsoDateOnly(row.data_ficha),
     especie: row.especie ?? "",
     sexo: parseSexo(row.sexo),
@@ -82,6 +106,9 @@ export function mapApiToFicha(row: AnimalFichaApi): AnimalFicha {
     dataEntrada: toIsoDateOnly(row.data_entrada),
     observacoes: row.observacoes ?? "",
     estado: parseEstado(row),
+    vermifugado: parseBool(row.vermifugado),
+    vacinado: parseBool(row.vacinado),
+    castrado: parseBool(row.castrado),
   };
 }
 
@@ -120,4 +147,25 @@ export async function deleteAnimal(animalId: string): Promise<void> {
 
 export async function patchAnimalState(animalId: string, animalStateId: number): Promise<AnimalFicha> {
   return patchAnimalRaw(animalId, { animal_state_id: animalStateId });
+}
+
+export type AnimalCuidadosPatch = Partial<
+  Pick<AnimalFicha, "vermifugado" | "vacinado" | "castrado">
+>;
+
+export async function patchAnimalCuidados(
+  animalId: string,
+  body: AnimalCuidadosPatch,
+): Promise<AnimalFicha> {
+  const payload: Record<string, unknown> = {};
+  if (Object.prototype.hasOwnProperty.call(body, "vermifugado")) {
+    payload.vermifugado = body.vermifugado;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "vacinado")) {
+    payload.vacinado = body.vacinado;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "castrado")) {
+    payload.castrado = body.castrado;
+  }
+  return patchAnimalRaw(animalId, payload);
 }

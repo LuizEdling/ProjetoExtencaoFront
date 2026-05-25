@@ -1,7 +1,7 @@
 import { isAxiosError } from "axios";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { estadoBorderClass, estadoDotClass } from "../../constants/animalEstadoStyles";
+import { estadoBadgeClass, estadoDotClass } from "../../constants/animalEstadoStyles";
 import { isEstadoAdotado } from "../../lib/isEstadoAdotado";
 import { patchAnimalState } from "../../services/animalsApi";
 import type { AnimalEstadoApiRow } from "../../services/animalStatesApi";
@@ -128,9 +128,7 @@ export default function AnimalEstadoSelect({ animal, estados, onUpdated, onSucce
   }
 
   const triggerLabel = `Alterar estado de ${animal.nome}. Estado atual: ${animal.estado.nome}.`;
-  const triggerTitle =
-    "Abrir lista de estados — mudar só o estado, sem abrir a ficha completa";
-  const borderTok = estadoBorderClass(animal.estado.nome);
+  const triggerTitle = "Clique para abrir a lista e alterar o estado (sem abrir a ficha completa).";
 
   const menu =
     open &&
@@ -191,7 +189,7 @@ export default function AnimalEstadoSelect({ animal, estados, onUpdated, onSucce
   return (
     <div
       ref={wrapRef}
-      className="relative shrink-0"
+      className="relative min-w-0 max-w-full"
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
@@ -209,43 +207,30 @@ export default function AnimalEstadoSelect({ animal, estados, onUpdated, onSucce
           setOpen((v) => !v);
         }}
         className={`
-          rounded-xl p-2 text-(--text-secondary)
-          border-2 ${borderTok} bg-(--background-second-layer)
-          hover:brightness-[1.04]
+          max-w-[min(14rem,calc(100vw-4rem))] sm:max-w-[18rem]
+          ${estadoBadgeClass(animal.estado.nome)}
+          cursor-pointer text-left
+          hover:brightness-[1.04] active:scale-[0.99]
           focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
-          transition-[filter,opacity]
-          disabled:pointer-events-none disabled:opacity-50
+          transition-[filter,transform,opacity]
+          disabled:pointer-events-none disabled:opacity-60
+          ${open ? "ring-2 ring-(--highlighted-text)/45" : ""}
         `}
       >
-        {busy ? (
+        <span className={`${estadoDotClass(animal.estado.nome)}`} aria-hidden />
+        <span className="min-w-0 flex-1 truncate">{animal.estado.nome}</span>
+        {busy && (
           <svg
-            width="18"
-            height="18"
+            width="14"
+            height="14"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth="2.2"
             aria-hidden
-            className="block animate-spin opacity-80"
+            className="shrink-0 animate-spin opacity-80"
           >
-            <path
-              d="M12 3a9 9 0 109 9"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        ) : (
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden
-            className={`block transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-          >
-            <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M12 3a9 9 0 109 9" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
       </button>

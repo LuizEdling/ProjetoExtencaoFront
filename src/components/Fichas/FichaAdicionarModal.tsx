@@ -1,12 +1,16 @@
 import { isAxiosError } from "axios";
 import { useEffect, useId, useRef, useState } from "react";
+import { toIsoDateLocal } from "../../lib/formatFicha";
 import { isEstadoAdotado } from "../../lib/isEstadoAdotado";
 import { createAnimal, updateAnimal } from "../../services/animalsApi";
 import type { AnimalEstadoApiRow } from "../../services/animalStatesApi";
 import { SEXOS_ANIMAL, type AnimalFicha, type SexoAnimal } from "../../types/animalFicha";
 import CreatableCatalogCombobox from "./CreatableCatalogCombobox";
+import AnimalCuidadosCheckboxes, { type CuidadosKey } from "./AnimalCuidadosCheckboxes";
 
 const ESPECIES_PADRAO = ["Gato", "Cachorro"] as const;
+
+const MICROCHIP_MAX_LEN = 15;
 
 const IDADE_MIN = 0;
 const IDADE_MAX = 50;
@@ -30,6 +34,7 @@ type FormState = {
   nome: string;
   raca: string;
   data_ficha: string;
+  microchip: string;
   especie: string;
   sexo: "" | SexoAnimal;
   idade: string;
@@ -38,6 +43,9 @@ type FormState = {
   data_entrada: string;
   observacoes: string;
   animal_state_id: string;
+  vermifugado: boolean;
+  vacinado: boolean;
+  castrado: boolean;
 };
 
 function defaultEstadoId(estados: AnimalEstadoApiRow[]): string {
@@ -50,7 +58,8 @@ function emptyForm(estados: AnimalEstadoApiRow[]): FormState {
   return {
     nome: "",
     raca: "",
-    data_ficha: "",
+    data_ficha: toIsoDateLocal(),
+    microchip: "",
     especie: "",
     sexo: "",
     idade: "",
@@ -59,6 +68,9 @@ function emptyForm(estados: AnimalEstadoApiRow[]): FormState {
     data_entrada: "",
     observacoes: "",
     animal_state_id: defaultEstadoId(estados),
+    vermifugado: false,
+    vacinado: false,
+    castrado: false,
   };
 }
 
@@ -68,6 +80,7 @@ function fichaToFormState(a: AnimalFicha): FormState {
     nome: a.nome,
     raca: a.raca,
     data_ficha: a.data,
+    microchip: a.microchip,
     especie: a.especie,
     sexo: a.sexo,
     idade: String(a.idade),
@@ -76,6 +89,9 @@ function fichaToFormState(a: AnimalFicha): FormState {
     data_entrada: a.dataEntrada,
     observacoes: a.observacoes,
     animal_state_id: sid,
+    vermifugado: a.vermifugado,
+    vacinado: a.vacinado,
+    castrado: a.castrado,
   };
 }
 
@@ -121,6 +137,14 @@ function validateForm(form: FormState): string | null {
   const pesoNum = parseFloat(pesoRaw);
   if (!Number.isFinite(pesoNum) || pesoNum < PESO_MIN || pesoNum > PESO_MAX) {
     return `O peso deve ser um número entre ${PESO_MIN} e ${PESO_MAX} kg.`;
+  }
+
+  const chip = form.microchip.trim();
+  if (chip !== "" && !/^\d+$/.test(chip)) {
+    return "Microchip: use apenas números.";
+  }
+  if (chip.length > MICROCHIP_MAX_LEN) {
+    return `Microchip: no máximo ${MICROCHIP_MAX_LEN} dígitos.`;
   }
 
   return null;
@@ -201,6 +225,7 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
     const payload = {
       nome: form.nome.trim(),
       raca: form.raca.trim(),
+      microchip: form.microchip.trim() === "" ? null : form.microchip.trim(),
       data_ficha: form.data_ficha.trim(),
       especie: form.especie.trim(),
       sexo: form.sexo as SexoAnimal,
@@ -210,6 +235,9 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
       data_entrada: form.data_entrada.trim(),
       observacoes: form.observacoes.trim(),
       animal_state_id: animalStateId,
+      vermifugado: form.vermifugado,
+      vacinado: form.vacinado,
+      castrado: form.castrado,
     };
 
     setSubmitting(true);
@@ -341,6 +369,18 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
                 )}
               </select>
             </label>
+            <div className="block sm:col-span-2">
+              <span className="form-label">Cuidados</span>
+              <div className="mt-2">
+                <AnimalCuidadosCheckboxes
+                  vermifugado={form.vermifugado}
+                  vacinado={form.vacinado}
+                  castrado={form.castrado}
+                  onChange={(key: CuidadosKey, checked: boolean) => update(key, checked)}
+                  disabled={submitting}
+                />
+              </div>
+            </div>
             <label className="block">
               <span className="form-label">Idade (anos)</span>
               <input
@@ -377,6 +417,23 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
               value={form.cor}
               onChange={(v) => update("cor", v)}
             />
+            <label className="block sm:col-span-2">
+              <span className="form-label">Microchip (opcional)</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={MICROCHIP_MAX_LEN}
+                pattern="[0-9]*"
+                placeholder="Somente números, até 15 dígitos"
+                value={form.microchip}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, MICROCHIP_MAX_LEN);
+                  update("microchip", digits);
+                }}
+                className="mt-1 form-control tabular-nums"
+              />
+            </label>
             <label className="block sm:col-span-2">
               <span className="form-label">Data de entrada</span>
               <input

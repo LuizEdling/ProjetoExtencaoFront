@@ -21,6 +21,11 @@ function formatTelefone(value: string) {
     .replace(/(\d{5})(\d)/, "$1-$2");
 }
 
+function dash(s: string | null | undefined) {
+  const t = String(s ?? "").trim();
+  return t !== "" ? t : "—";
+}
+
 export default function AdotantesPage() {
   const [data, setData] = useState<Adotante[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,24 +86,27 @@ export default function AdotantesPage() {
 
       {/* TOOLBAR */}
       <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
-        <div className="flex gap-2 flex-wrap">
-          <input
-            placeholder="Buscar por nome"
-            value={filters.nome}
-            onChange={(e) =>
-              setFilters({ ...filters, nome: e.target.value })
-            }
-            className="form-control"
-          />
-
-          <input
-            placeholder="Buscar por CPF"
-            value={filters.cpf}
-            onChange={(e) =>
-              setFilters({ ...filters, cpf: e.target.value })
-            }
-            className="form-control"
-          />
+        <div className="flex flex-nowrap gap-2 min-w-0">
+          <div className="w-[min(100%,14rem)] shrink-0 sm:w-56">
+            <input
+              placeholder="Buscar por nome"
+              value={filters.nome}
+              onChange={(e) =>
+                setFilters({ ...filters, nome: e.target.value })
+              }
+              className="form-control"
+            />
+          </div>
+          <div className="w-[min(100%,14rem)] shrink-0 sm:w-52">
+            <input
+              placeholder="Buscar por CPF"
+              value={filters.cpf}
+              onChange={(e) =>
+                setFilters({ ...filters, cpf: e.target.value })
+              }
+              className="form-control"
+            />
+          </div>
         </div>
 
         <button
@@ -120,74 +128,125 @@ export default function AdotantesPage() {
         className="
           rounded-2xl border border-(--light-gray)/25
           bg-(--background-second-layer)
-          shadow-sm overflow-hidden
+          shadow-sm overflow-hidden overflow-x-auto
         "
       >
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[56rem] text-sm text-left">
           <thead className="bg-(--background-first-layer) text-(--text-secondary)">
             <tr>
-              <th className="p-3 text-left">Nome</th>
-              <th className="p-3 text-left">CPF</th>
-              <th className="p-3 text-left">Telefone</th>
-              <th className="p-3 text-left">Ações</th>
+              <th className="p-3 whitespace-nowrap">Nome</th>
+              <th className="p-3 whitespace-nowrap">CPF</th>
+              <th className="p-3 whitespace-nowrap">Telefone</th>
+              <th className="p-3 whitespace-nowrap">RG</th>
+              <th className="p-3 min-w-[10rem]">Endereço</th>
+              <th className="p-3 whitespace-nowrap">Bairro</th>
+              <th className="p-3 whitespace-nowrap">Cidade</th>
+              <th className="p-3 w-12 text-center">UF</th>
+              <th className="p-3 text-right whitespace-nowrap">Ações</th>
             </tr>
           </thead>
 
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={4} className="p-4 text-center text-(--text-secondary)">
+                <td colSpan={9} className="p-4 text-center text-(--text-secondary)">
                   Carregando...
                 </td>
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={4} className="p-4 text-center text-(--text-secondary)">
+                <td colSpan={9} className="p-4 text-center text-(--text-secondary)">
                   Nenhum adotante encontrado
                 </td>
               </tr>
             ) : (
               data.map((a) => (
                 <tr key={a.id} className="border-t border-(--light-gray)/20">
-                  <td className="p-3 text-(--text-primary)">
-                    {a.nome}
-                  </td>
+                  <td className="p-3 text-(--text-primary) align-top">{a.nome}</td>
 
-                  {/* CPF FORMATADO E MESMA COR DO NOME */}
-                  <td className="p-3 text-(--text-primary)">
+                  <td className="p-3 text-(--text-primary) tabular-nums align-top whitespace-nowrap">
                     {formatCPF(a.cpf)}
                   </td>
 
-                  {/* TELEFONE FORMATADO */}
-                  <td className="p-3 text-(--text-primary)">
+                  <td className="p-3 text-(--text-primary) tabular-nums align-top whitespace-nowrap">
                     {formatTelefone(a.telefone)}
                   </td>
 
-                  <td className="p-3 flex gap-2 text-(--text-secondary)">
-                    <button
-                      onClick={() => {
-                        setSelected(a);
-                        setModalOpen(true);
-                      }}
-                      className="
-                        px-3 py-1 rounded-full text-xs
-                        hover:bg-(--background-first-layer)
-                        transition
-                      "
-                    >
-                      ✏️
-                    </button>
+                  <td className="p-3 text-(--text-primary) align-top whitespace-nowrap">{dash(a.rg)}</td>
 
-                    <button
-                      onClick={() => handleDelete(a.id)}
-                      className="
-                        px-3 py-1 rounded-full text-xs
-                        hover:bg-(--background-first-layer)
-                        transition
-                      "
-                    >
-                      🗑️
-                    </button>
+                  <td className="p-3 text-(--text-primary) align-top max-w-[14rem]">
+                    <span className="line-clamp-2 break-words">{dash(a.endereco)}</span>
+                  </td>
+
+                  <td className="p-3 text-(--text-primary) align-top">{dash(a.bairro)}</td>
+
+                  <td className="p-3 text-(--text-primary) align-top whitespace-nowrap">{dash(a.cidade)}</td>
+
+                  <td className="p-3 text-(--text-primary) align-top text-center font-medium uppercase">
+                    {dash(a.uf)}
+                  </td>
+
+                  <td className="p-3 align-top text-right">
+                    <div className="flex gap-2 text-(--text-secondary)">
+                      <button
+                        type="button"
+                        aria-label={`Editar ${a.nome}`}
+                        onClick={() => {
+                          setSelected(a);
+                          setModalOpen(true);
+                        }}
+                        className="
+                          rounded-full p-2
+                          hover:bg-(--background-first-layer)
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
+                          transition
+                        "
+                      >
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          aria-hidden
+                        >
+                          <path
+                            d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+
+                      <button
+                        type="button"
+                        aria-label={`Excluir ${a.nome}`}
+                        onClick={() => handleDelete(a.id)}
+                        className="
+                          rounded-full p-2
+                          hover:bg-(--background-first-layer)
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
+                          transition
+                        "
+                      >
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          aria-hidden
+                        >
+                          <path
+                            d="M3 6h18M8 6V4h8v2m-9 4v10m10-10v10M10 11v6M14 11v6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))

@@ -14,6 +14,11 @@ type FormState = {
   nome: string;
   cpf: string;
   telefone: string;
+  rg: string;
+  endereco: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
 };
 
 function emptyForm(): FormState {
@@ -21,7 +26,16 @@ function emptyForm(): FormState {
     nome: "",
     cpf: "",
     telefone: "",
+    rg: "",
+    endereco: "",
+    bairro: "",
+    cidade: "",
+    uf: "",
   };
+}
+
+function str(v: string | null | undefined): string {
+  return v == null ? "" : String(v);
 }
 
 function getInitialForm(adotante: Adotante | null): FormState {
@@ -33,6 +47,11 @@ function getInitialForm(adotante: Adotante | null): FormState {
     nome: adotante.nome,
     cpf: adotante.cpf,
     telefone: adotante.telefone,
+    rg: str(adotante.rg),
+    endereco: str(adotante.endereco),
+    bairro: str(adotante.bairro),
+    cidade: str(adotante.cidade),
+    uf: str(adotante.uf),
   };
 }
 
@@ -78,6 +97,10 @@ function AdotanteModalContent({
       .slice(0, 15);
   }
 
+  function formatUF(value: string) {
+    return value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 2);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
@@ -86,6 +109,11 @@ function AdotanteModalContent({
       nome: form.nome.trim(),
       cpf: form.cpf.replace(/\D/g, ""),
       telefone: form.telefone.replace(/\D/g, ""),
+      rg: form.rg.trim(),
+      endereco: form.endereco.trim(),
+      bairro: form.bairro.trim(),
+      cidade: form.cidade.trim(),
+      uf: formatUF(form.uf),
     };
 
     setSubmitting(true);
@@ -118,6 +146,31 @@ function AdotanteModalContent({
           return;
         }
 
+        if (errors?.rg) {
+          setFormError("Informe o RG.");
+          return;
+        }
+
+        if (errors?.endereco) {
+          setFormError("Informe o endereço.");
+          return;
+        }
+
+        if (errors?.bairro) {
+          setFormError("Informe o bairro.");
+          return;
+        }
+
+        if (errors?.cidade) {
+          setFormError("Informe a cidade.");
+          return;
+        }
+
+        if (errors?.uf) {
+          setFormError("Informe a UF com 2 letras.");
+          return;
+        }
+
         setFormError("Erro ao salvar. Verifique os dados.");
       } else {
         setFormError("Erro inesperado.");
@@ -138,7 +191,7 @@ function AdotanteModalContent({
       {/* MODAL */}
       <div
         className="
-          relative z-10 w-full max-w-md
+          relative z-10 w-full max-w-xl max-h-[90vh] overflow-y-auto
           rounded-2xl border border-(--light-gray)/25 border-t-4 border-t-(--light-green)
           bg-(--background-second-layer) shadow-xl p-6
         "
@@ -152,36 +205,95 @@ function AdotanteModalContent({
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-3">
-          <label className="block">
-            <span className="form-label">Nome</span>
-            <input
-              ref={firstFieldRef}
-              required
-              value={form.nome}
-              onChange={(e) => update("nome", e.target.value)}
-              className="mt-1 form-control"
-            />
-          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="block sm:col-span-2">
+              <span className="form-label">Nome</span>
+              <input
+                ref={firstFieldRef}
+                required
+                value={form.nome}
+                onChange={(e) => update("nome", e.target.value)}
+                className="mt-1 form-control"
+              />
+            </label>
 
-          <label className="block">
-            <span className="form-label">CPF</span>
-            <input
-              required
-              value={form.cpf}
-              onChange={(e) => update("cpf", formatCPF(e.target.value))}
-              className="mt-1 form-control"
-            />
-          </label>
+            <label className="block">
+              <span className="form-label">CPF</span>
+              <input
+                required
+                value={form.cpf}
+                onChange={(e) => update("cpf", formatCPF(e.target.value))}
+                className="mt-1 form-control"
+              />
+            </label>
 
-          <label className="block">
-            <span className="form-label">Telefone</span>
-            <input
-              required
-              value={form.telefone}
-              onChange={(e) => update("telefone", formatTelefone(e.target.value))}
-              className="mt-1 form-control"
-            />
-          </label>
+            <label className="block">
+              <span className="form-label">Telefone</span>
+              <input
+                required
+                value={form.telefone}
+                onChange={(e) => update("telefone", formatTelefone(e.target.value))}
+                className="mt-1 form-control"
+              />
+            </label>
+
+            <label className="block sm:col-span-2">
+              <span className="form-label">RG</span>
+              <input
+                required
+                maxLength={20}
+                value={form.rg}
+                onChange={(e) => update("rg", e.target.value)}
+                className="mt-1 form-control"
+              />
+            </label>
+
+            <label className="block sm:col-span-2">
+              <span className="form-label">Endereço</span>
+              <input
+                required
+                maxLength={255}
+                value={form.endereco}
+                onChange={(e) => update("endereco", e.target.value)}
+                className="mt-1 form-control"
+              />
+            </label>
+
+            <label className="block sm:col-span-2">
+              <span className="form-label">Bairro</span>
+              <input
+                required
+                maxLength={120}
+                value={form.bairro}
+                onChange={(e) => update("bairro", e.target.value)}
+                className="mt-1 form-control"
+              />
+            </label>
+
+            <label className="block sm:col-span-1">
+              <span className="form-label">Cidade</span>
+              <input
+                required
+                maxLength={120}
+                value={form.cidade}
+                onChange={(e) => update("cidade", e.target.value)}
+                className="mt-1 form-control"
+              />
+            </label>
+
+            <label className="block sm:col-span-1">
+              <span className="form-label">UF</span>
+              <input
+                required
+                maxLength={2}
+                placeholder="Ex.: SP"
+                value={form.uf}
+                onChange={(e) => update("uf", formatUF(e.target.value))}
+                className="mt-1 form-control uppercase"
+                autoComplete="address-level1"
+              />
+            </label>
+          </div>
 
           {formError && (
             <p className="text-sm text-(--error-advice)">

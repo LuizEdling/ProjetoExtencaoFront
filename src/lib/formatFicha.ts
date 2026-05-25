@@ -19,6 +19,14 @@ export function toIsoDateOnly(raw: string | null | undefined): string {
   return "";
 }
 
+/** Data local em `YYYY-MM-DD` (ex.: valor inicial de `<input type="date">`). */
+export function toIsoDateLocal(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function formatDateBR(iso: string): string {
   const head = iso.slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(head)) {
@@ -51,4 +59,14 @@ export function formatPesoKg(peso: number): string {
     maximumFractionDigits: 2,
   }).format(peso);
   return `${txt} kg`;
+}
+
+export function formatBRL(valor: number): string {
+  if (!Number.isFinite(valor)) {
+    return "—";
+  }
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(valor);
 }
