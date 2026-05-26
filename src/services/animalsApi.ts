@@ -38,7 +38,7 @@ export interface CreateAnimalPayload {
   cor: string;
   data_entrada: string;
   observacoes: string;
-  /** Se omitido, o backend usa o estado padrão (ex.: Esperando consulta). */
+  /** Se omitido no POST, o backend define o estado padrão (ex.: Esperando adoção). */
   animal_state_id?: number;
   vermifugado?: boolean;
   vacinado?: boolean;
@@ -114,7 +114,9 @@ export function mapApiToFicha(row: AnimalFichaApi): AnimalFicha {
 
 export async function fetchAnimals(): Promise<AnimalFicha[]> {
   const url = getAnimalsEndpoint();
-  const { data } = await apiClient.get<AnimalFichaApi[]>(url);
+  const { data } = await apiClient.get<AnimalFichaApi[]>(url, {
+    params: { all: 1 },
+  });
   const list = Array.isArray(data) ? data : [];
   return list.map((row, index) => {
     const mapped = mapApiToFicha(row);
@@ -123,6 +125,76 @@ export async function fetchAnimals(): Promise<AnimalFicha[]> {
     }
     return mapped;
   });
+}
+
+/** Resposta paginada de `GET /api/animals?page=…` (Laravel). */
+export interface PaginatedAnimals {
+  data: AnimalFicha[];
+  currentPage: number;
+  lastPage: number;
+  perPage: number;
+  total: number;
+}
+
+interface LaravelAnimalPaginator {
+  current_page: number;
+  data: AnimalFichaApi[];
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
+function unwrapPaginator(body: unknown): LaravelAnimalPaginator | null {
+  if (body === null || typeof body !== "object") return null;
+  const root = body as Record<string, unknown>;
+  if (Array.isArray(root.data) && ("current_page" in root || "total" in root)) {
+    return root as unknown as LaravelAnimalPaginator;
+  }
+  const nested = root.data;
+  if (nested !== null && typeof nested === "object") {
+    const inner = nested as Record<string, unknown>;
+    if (Array.isArray(inner.data) && ("current_page" in inner || "total" in inner)) {
+      return inner as unknown as LaravelAnimalPaginator;
+    }
+  }
+  return null;
+}
+
+export async function fetchAnimalsPage(params: {
+  page: number;
+  perPage?: number;
+  q?: string;
+}): Promise<PaginatedAnimals> {
+  const url = getAnimalsEndpoint();
+  const { data: raw } = await apiClient.get<unknown>(url, {
+    params: {
+      page: params.page,
+      per_page: params.perPage ?? 10,
+      ...(params.q && params.q.trim() !== "" ? { q: params.q.trim() } : {}),
+    },
+  });
+
+  const data = unwrapPaginator(raw);
+  if (!data) {
+    throw new Error("Resposta de animais em formato inesperado (paginação).");
+  }
+
+  const rows = Array.isArray(data.data) ? data.data : [];
+  const mapped = rows.map((row, index) => {
+    const m = mapApiToFicha(row);
+    if (!m.id) {
+      return { ...m, id: `temp-${index}-${m.nome}` };
+    }
+    return m;
+  });
+
+  return {
+    data: mapped,
+    currentPage: Number(data.current_page) || 1,
+    lastPage: Math.max(1, Number(data.last_page) || 1),
+    perPage: Number(data.per_page) || 10,
+    total: Number(data.total) || mapped.length,
+  };
 }
 
 export async function createAnimal(body: CreateAnimalPayload): Promise<void> {

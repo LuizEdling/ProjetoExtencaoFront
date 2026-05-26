@@ -5,7 +5,7 @@ import FlashBanner, { type FlashPayload } from "../FlashBanner";
 import AdocaoModal from "./AdocaoModal";
 import { adoptionCelebrationMessage } from "../../lib/adoptionCelebrationMessage";
 import { formatDateBR, toIsoDateOnly } from "../../lib/formatFicha";
-import { fetchAdocoes, downloadContratoPdf, openContratoPdfInNewTab } from "../../services/adocoesApi";
+import { fetchAdocoesPage, downloadContratoPdf, openContratoPdfInNewTab } from "../../services/adocoesApi";
 import type { AdocaoListItem } from "../../types/adocao";
 
 function formatCPF(value: string | undefined) {
@@ -29,6 +29,9 @@ function loadErrorMessage(err: unknown): string {
 export default function AdocoesPage() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<AdocaoListItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -38,34 +41,27 @@ export default function AdocoesPage() {
 
   const dismissFlash = useCallback(() => setFlash(null), []);
 
-  const load = useCallback(async () => {
+  const loadList = useCallback(async () => {
+    setLoading(true);
     setLoadError(null);
     try {
-      const list = await fetchAdocoes();
-      setRows(list);
+      const res = await fetchAdocoesPage({ page, perPage: 10 });
+      setRows(res.data);
+      setLastPage(res.lastPage);
+      setTotal(res.total);
     } catch (e) {
       setLoadError(loadErrorMessage(e));
+      setRows([]);
+      setLastPage(1);
+      setTotal(0);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const list = await fetchAdocoes();
-        if (!cancelled) setRows(list);
-      } catch (e) {
-        if (!cancelled) setLoadError(loadErrorMessage(e));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void loadList();
+  }, [loadList]);
 
   async function handleSaved({ animalNome }: { animalNome: string }) {
     setFlash({
@@ -73,7 +69,11 @@ export default function AdocoesPage() {
       celebration: true,
       message: adoptionCelebrationMessage(animalNome),
     });
-    await load();
+    if (page === 1) {
+      await loadList();
+    } else {
+      setPage(1);
+    }
   }
 
   async function handleVerContrato(adocaoId: number) {
@@ -81,7 +81,7 @@ export default function AdocoesPage() {
     setContratoBusy({ id: adocaoId, action: "view" });
     try {
       await openContratoPdfInNewTab(adocaoId);
-      await load();
+      await loadList();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Não foi possível abrir o contrato.";
       setContractError(msg);
@@ -95,7 +95,7 @@ export default function AdocoesPage() {
     setContratoBusy({ id: adocaoId, action: "download" });
     try {
       await downloadContratoPdf(adocaoId);
-      await load();
+      await loadList();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Não foi possível gerar o contrato.";
       setContractError(msg);
@@ -215,7 +215,7 @@ export default function AdocoesPage() {
                   Carregando...
                 </td>
               </tr>
-            ) : rows.length === 0 ? (
+            ) : total === 0 ? (
               <tr>
                 <td colSpan={6} className="p-4 text-center text-(--text-secondary)">
                   Nenhuma adoção registrada ainda. Use &quot;+ Nova adoção&quot; para registrar a primeira.
@@ -349,6 +349,42 @@ export default function AdocoesPage() {
           </tbody>
         </table>
       </div>
+
+      {!loading && !loadError && total > 0 && lastPage > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
+          <p className="text-sm text-(--text-secondary)">
+            Página {page} de {lastPage} · {total} adoç{total === 1 ? "ão" : "ões"}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="
+                px-4 py-2 rounded-full text-sm font-medium border border-(--light-gray)/50
+                text-(--text-primary) hover:bg-(--background-first-layer)
+                disabled:opacity-40 disabled:pointer-events-none
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
+              "
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              disabled={page >= lastPage}
+              onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
+              className="
+                px-4 py-2 rounded-full text-sm font-medium border border-(--light-gray)/50
+                text-(--text-primary) hover:bg-(--background-first-layer)
+                disabled:opacity-40 disabled:pointer-events-none
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
+              "
+            >
+              Próxima
+            </button>
+          </div>
+        </div>
+      )}
 
       <AdocaoModal
         open={modalOpen}

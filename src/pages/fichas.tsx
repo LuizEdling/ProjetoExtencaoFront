@@ -1,5 +1,5 @@
 import { isAxiosError } from "axios";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import FlashBanner, { type FlashPayload } from "../components/FlashBanner";
 import AnimalEstadoSelect from "../components/Fichas/AnimalEstadoSelect";
 import { AnimalCuidadoCheckboxCell, type CuidadosKey } from "../components/Fichas/AnimalCuidadosCheckboxes";
@@ -7,14 +7,10 @@ import FichaAdicionarModal from "../components/Fichas/FichaAdicionarModal";
 import FichaDetalheModal from "../components/Fichas/FichaDetalheModal";
 import { formatDateBR } from "../lib/formatFicha";
 import { adoptionCelebrationMessage } from "../lib/adoptionCelebrationMessage";
-import { deleteAnimal, fetchAnimals, patchAnimalCuidados } from "../services/animalsApi";
+import { deleteAnimal, fetchAnimalsPage, patchAnimalCuidados } from "../services/animalsApi";
 import { fetchAnimalStates } from "../services/animalStatesApi";
 import type { AnimalEstadoApiRow } from "../services/animalStatesApi";
 import type { AnimalFicha } from "../types/animalFicha";
-
-function normalize(s: string) {
-  return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-}
 
 function loadErrorMessage(err: unknown): string {
   if (isAxiosError(err)) {
@@ -49,6 +45,11 @@ export default function Fichas() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
+  const [qApi, setQApi] = useState("");
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
   const [selecionado, setSelecionado] = useState<AnimalFicha | null>(null);
   const [fichaFormOpen, setFichaFormOpen] = useState(false);
   const [animalToEdit, setAnimalToEdit] = useState<AnimalFicha | null>(null);
@@ -57,46 +58,55 @@ export default function Fichas() {
 
   const dismissFlash = useCallback(() => setFlash(null), []);
 
-  const refreshAnimals = useCallback(async () => {
+  useEffect(() => {
+    const trimmed = busca.trim();
+    if (trimmed === "") {
+      setQApi("");
+      return;
+    }
+    const t = window.setTimeout(() => setQApi(trimmed), 400);
+    return () => window.clearTimeout(t);
+  }, [busca]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [qApi]);
+
+  const loadList = useCallback(async () => {
+    setLoading(true);
     setLoadError(null);
     try {
-      const list = await fetchAnimals();
-      setAnimais(list);
+      const res = await fetchAnimalsPage({ page, perPage: 10, q: qApi || undefined });
+      setAnimais(res.data);
+      setLastPage(res.lastPage);
+      setPerPage(res.perPage);
+      setTotal(res.total);
     } catch (e) {
       setLoadError(loadErrorMessage(e));
+      setAnimais([]);
+      setLastPage(1);
+      setPerPage(10);
+      setTotal(0);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [page, qApi]);
+
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const [list, estados] = await Promise.all([fetchAnimals(), fetchAnimalStates()]);
-        if (!cancelled) {
-          setAnimais(list);
-          setEstadosCatalogo(estados);
-        }
-      } catch (e) {
-        if (!cancelled) setLoadError(loadErrorMessage(e));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+    fetchAnimalStates()
+      .then((estados) => {
+        if (!cancelled) setEstadosCatalogo(estados);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
-
-  const filtradas = useMemo(() => {
-    const q = normalize(busca.trim());
-    if (!q) return animais;
-    return animais.filter((a) => {
-      const hay = `${a.nome} ${a.raca} ${a.especie} ${a.microchip}`;
-      return normalize(hay).includes(q);
-    });
-  }, [animais, busca]);
 
   function openAddFicha() {
     setAnimalToEdit(null);
@@ -126,7 +136,7 @@ export default function Fichas() {
     adoptedCelebration?: boolean;
     animalNome?: string;
   }) {
-    await refreshAnimals();
+    await loadList();
     try {
       const estados = await fetchAnimalStates();
       setEstadosCatalogo(estados);
@@ -180,10 +190,14 @@ export default function Fichas() {
     }
     try {
       await deleteAnimal(animal.id);
-      setAnimais((prev) => prev.filter((a) => a.id !== animal.id));
       setSelecionado((cur) => (cur?.id === animal.id ? null : cur));
       if (animalToEdit?.id === animal.id) closeFichaModal();
       setFlash({ variant: "success", message: "Ficha deletada com sucesso." });
+      if (animais.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        await loadList();
+      }
     } catch (err) {
       setFlash({ variant: "error", message: deleteErrorMessage(err) });
     }
@@ -226,7 +240,7 @@ export default function Fichas() {
                 type="search"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar por nome, raça ou espécie..."
+                placeholder="Buscar por nome, raça, espécie ou microchip..."
                 disabled={loading || !!loadError}
                 className="
                   w-full rounded-full border border-(--light-gray)/50
@@ -260,19 +274,19 @@ export default function Fichas() {
         <p className="text-center text-(--text-secondary) py-16">Carregando animais…</p>
       )}
 
-      {!loading && !loadError && animais.length === 0 && (
+      {!loading && !loadError && total === 0 && !qApi && (
         <p className="text-center text-(--text-secondary) py-16 rounded-2xl border border-(--light-gray)/25 bg-(--background-second-layer)">
           Nenhum animal cadastrado ainda. Use &quot;Adicionar Ficha&quot; para incluir o primeiro.
         </p>
       )}
 
-      {!loading && !loadError && animais.length > 0 && filtradas.length === 0 && (
+      {!loading && !loadError && total === 0 && qApi && (
         <p className="text-center text-(--text-secondary) py-16 rounded-2xl border border-(--light-gray)/25 bg-(--background-second-layer)">
           Nenhum animal encontrado para essa busca.
         </p>
       )}
 
-      {!loading && !loadError && filtradas.length > 0 && (
+      {!loading && !loadError && total > 0 && (
         <div
           className="
             rounded-2xl border border-(--light-gray)/25
@@ -296,7 +310,7 @@ export default function Fichas() {
               </tr>
             </thead>
             <tbody>
-              {filtradas.map((animal) => (
+              {animais.map((animal) => (
                 <tr
                   key={animal.id}
                   className="border-t border-(--light-gray)/20 hover:bg-(--background-first-layer)/30 transition-colors"
@@ -420,6 +434,42 @@ export default function Fichas() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && !loadError && total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <p className="text-sm text-(--text-secondary)">
+            Página {page} de {lastPage} · {total} ficha{total === 1 ? "" : "s"} · {perPage} por página
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="
+                px-4 py-2 rounded-full text-sm font-medium border border-(--light-gray)/50
+                text-(--text-primary) hover:bg-(--background-first-layer)
+                disabled:opacity-40 disabled:pointer-events-none
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
+              "
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              disabled={page >= lastPage}
+              onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
+              className="
+                px-4 py-2 rounded-full text-sm font-medium border border-(--light-gray)/50
+                text-(--text-primary) hover:bg-(--background-first-layer)
+                disabled:opacity-40 disabled:pointer-events-none
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
+              "
+            >
+              Próxima
+            </button>
+          </div>
         </div>
       )}
 

@@ -1,38 +1,50 @@
 import { isAxiosError } from "axios";
 import { getAdocoesEndpoint } from "../lib/apiBase";
+import { messageFromErrorBlob, triggerPdfDownload } from "../lib/pdfBlob";
 import { apiClient } from "../lib/apiClient";
 import type { AdocaoListItem, CreateAdocaoPayload } from "../types/adocao";
 
-export async function fetchAdocoes(): Promise<AdocaoListItem[]> {
-  const { data } = await apiClient.get<AdocaoListItem[]>(getAdocoesEndpoint());
-  return Array.isArray(data) ? data : [];
+export interface PaginatedAdocoes {
+  data: AdocaoListItem[];
+  currentPage: number;
+  lastPage: number;
+  perPage: number;
+  total: number;
+}
+
+interface LaravelAdocaoPaginator {
+  current_page: number;
+  data: AdocaoListItem[];
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
+export async function fetchAdocoesPage(params: {
+  page: number;
+  perPage?: number;
+}): Promise<PaginatedAdocoes> {
+  const { data } = await apiClient.get<LaravelAdocaoPaginator>(getAdocoesEndpoint(), {
+    params: {
+      page: params.page,
+      per_page: params.perPage ?? 10,
+    },
+  });
+
+  const rows = Array.isArray(data.data) ? data.data : [];
+
+  return {
+    data: rows,
+    currentPage: data.current_page,
+    lastPage: data.last_page,
+    perPage: data.per_page,
+    total: data.total,
+  };
 }
 
 export async function createAdocao(body: CreateAdocaoPayload): Promise<AdocaoListItem> {
   const { data } = await apiClient.post<{ data: AdocaoListItem }>(getAdocoesEndpoint(), body);
   return data.data;
-}
-
-function triggerPdfDownload(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-async function messageFromErrorBlob(blob: Blob): Promise<string | null> {
-  try {
-    const text = await blob.text();
-    const parsed = JSON.parse(text) as { message?: string; mensagem?: string };
-    return parsed.mensagem ?? parsed.message ?? null;
-  } catch {
-    return null;
-  }
 }
 
 async function fetchContratoPdfBlob(adocaoId: number): Promise<Blob> {
@@ -69,8 +81,8 @@ export async function openContratoPdfInNewTab(adocaoId: number): Promise<void> {
   const blob = await fetchContratoPdfBlob(adocaoId);
   const typed = blob.type && blob.type.includes("pdf") ? blob : new Blob([blob], { type: "application/pdf" });
   const objectUrl = URL.createObjectURL(typed);
-  window.open(objectUrl, "_blank", "noopener,noreferrer")
-  
+  window.open(objectUrl, "_blank", "noopener,noreferrer");
+
   window.setTimeout(() => {
     URL.revokeObjectURL(objectUrl);
   }, 120_000);

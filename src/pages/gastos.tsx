@@ -1,5 +1,5 @@
 import { isAxiosError } from "axios";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import GastoModal from "../components/Gastos/GastoModal";
 import { formatBRL, formatDateBR } from "../lib/formatFicha";
 import { deleteGasto, fetchGastos } from "../services/gastosApi";
@@ -48,6 +48,11 @@ export default function Gastos() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const totalGasto = useMemo(
+    () => data.reduce((sum, g) => sum + (Number.isFinite(g.valor) ? g.valor : 0), 0),
+    [data],
+  );
 
   async function handleDelete(id: number) {
     if (!confirm("Excluir esta saída?")) return;
@@ -121,11 +126,11 @@ export default function Gastos() {
           rounded-2xl border border-(--light-gray)/25
           bg-[color-mix(in_srgb,var(--red-bg)_18%,var(--background-second-layer))]
           dark:bg-[color-mix(in_srgb,rgb(127_29_29)_12%,var(--background-second-layer))]
-          shadow-sm overflow-hidden overflow-x-auto
+          shadow-sm overflow-x-auto max-h-[min(70vh,28rem)] overflow-y-auto relative
         "
       >
-        <table className="w-full min-w-[36rem] text-sm text-left">
-          <thead className="bg-(--background-first-layer) text-(--text-secondary)">
+        <table className="w-full min-w-[36rem] text-sm text-left border-separate border-spacing-0">
+          <thead className="sticky top-0 z-[2] bg-(--background-first-layer) text-(--text-secondary) shadow-[0_1px_0_color-mix(in_srgb,var(--light-gray)_35%,transparent)]">
             <tr>
               <th className="p-3 whitespace-nowrap">Data</th>
               <th className="p-3 whitespace-nowrap">Valor</th>
@@ -226,6 +231,23 @@ export default function Gastos() {
               ))
             )}
           </tbody>
+          <tfoot
+            className="
+              sticky bottom-0 z-[2] border-t-2 border-(--light-green)/40
+              bg-[color-mix(in_srgb,var(--background-first-layer)_92%,var(--light-green)_8%))]
+              dark:bg-[color-mix(in_srgb,var(--background-second-layer)_88%,var(--light-green)_12%))]
+              text-(--text-primary) shadow-[0_-1px_0_color-mix(in_srgb,var(--light-green)_25%,transparent)]
+            "
+          >
+            <tr>
+              <td colSpan={3} className="p-3 align-middle">
+                <div className="font-semibold">Total</div>
+              </td>
+              <td className="p-3 text-right font-semibold tabular-nums whitespace-nowrap align-middle">
+                {loading ? "—" : formatBRL(totalGasto)}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 

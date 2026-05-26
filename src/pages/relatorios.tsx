@@ -1,7 +1,1 @@
-export default function Relatorios(){
-  return(
-    <div>
-      <h1>Relatorios</h1>
-    </div>
-  );
-}
+export { default } from "../components/Relatorios/RelatoriosPage";

@@ -1,5 +1,11 @@
 import { isAxiosError } from "axios";
 import { useEffect, useId, useRef, useState } from "react";
+import {
+  brlAmountToDigitSequence,
+  formatBrlDigitSequence,
+  parseBrlDigitSequence,
+  sanitizeBrlDigitInput,
+} from "../../lib/brlCurrencyMask";
 import { toIsoDateLocal } from "../../lib/formatFicha";
 import { createGasto, updateGasto } from "../../services/gastosApi";
 import type { Gasto } from "../../types/gasto";
@@ -12,14 +18,14 @@ type Props = {
 };
 
 type FormState = {
-  valor: string;
+  valorDigits: string;
   data: string;
   descricao: string;
 };
 
 function emptyForm(): FormState {
   return {
-    valor: "",
+    valorDigits: "",
     data: toIsoDateLocal(),
     descricao: "",
   };
@@ -28,7 +34,7 @@ function emptyForm(): FormState {
 function getInitialForm(g: Gasto | null): FormState {
   if (!g) return emptyForm();
   return {
-    valor: String(g.valor),
+    valorDigits: brlAmountToDigitSequence(g.valor),
     data: g.data,
     descricao: g.descricao,
   };
@@ -56,9 +62,8 @@ function GastoModalContent({ onClose, onSaved, gastoToEdit }: Omit<Props, "open"
     e.preventDefault();
     setFormError(null);
 
-    const valorRaw = form.valor.trim().replace(",", ".");
-    const valorNum = parseFloat(valorRaw);
-    if (!Number.isFinite(valorNum) || valorNum < 0.01) {
+    const valorNum = parseBrlDigitSequence(form.valorDigits);
+    if (valorNum === null || valorNum < 0.01) {
       setFormError("Informe um valor válido (mínimo R$ 0,01).");
       return;
     }
@@ -141,12 +146,12 @@ function GastoModalContent({ onClose, onSaved, gastoToEdit }: Omit<Props, "open"
             <input
               ref={firstFieldRef}
               required
-              type="number"
-              min={0.01}
-              step={0.01}
-              inputMode="decimal"
-              value={form.valor}
-              onChange={(e) => update("valor", e.target.value)}
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="0,00"
+              value={formatBrlDigitSequence(form.valorDigits)}
+              onChange={(e) => update("valorDigits", sanitizeBrlDigitInput(e.target.value))}
               className="mt-1 form-control"
             />
           </label>

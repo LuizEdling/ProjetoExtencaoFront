@@ -12,9 +12,22 @@ function getAdotantesEndpoint(): string {
   return `${base}/api/adotantes`;
 }
 
+/** CPF para query: só dígitos (o campo na tela pode ter pontuação). */
+function cpfQueryDigits(value: string | undefined): string | undefined {
+  if (value == null) return undefined;
+  const digits = value.replace(/\D/g, "");
+  return digits === "" ? undefined : digits;
+}
+
 export async function fetchAdotantes(params?: { nome?: string; cpf?: string }) {
+  const query: Record<string, string> = {};
+  const nome = params?.nome?.trim();
+  if (nome) query.nome = nome;
+  const cpf = cpfQueryDigits(params?.cpf);
+  if (cpf) query.cpf = cpf;
+
   const { data } = await apiClient.get<Adotante[]>(getAdotantesEndpoint(), {
-    params,
+    params: query,
   });
 
   return data;

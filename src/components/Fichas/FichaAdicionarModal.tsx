@@ -14,7 +14,7 @@ const MICROCHIP_MAX_LEN = 15;
 
 const IDADE_MIN = 0;
 const IDADE_MAX = 50;
-const PESO_MIN = 0.01;
+const PESO_MIN = 0;
 const PESO_MAX = 200;
 
 type Props = {
@@ -96,9 +96,14 @@ function fichaToFormState(a: AnimalFicha): FormState {
 }
 
 function validateForm(form: FormState): string | null {
-  const sid = form.animal_state_id.trim();
-  if (!/^\d+$/.test(sid)) {
-    return "Selecione o estado do animal.";
+  const raca = form.raca.trim();
+  if (!raca) {
+    return "Informe a raça.";
+  }
+
+  const especie = form.especie.trim();
+  if (!especie) {
+    return "Informe a espécie.";
   }
 
   const dataFicha = form.data_ficha.trim();
@@ -109,34 +114,25 @@ function validateForm(form: FormState): string | null {
     return "Data da ficha inválida. Use o seletor de data.";
   }
 
-  const dataEntrada = form.data_entrada.trim();
-  if (!dataEntrada) {
-    return "Informe a data de entrada.";
-  }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataEntrada)) {
-    return "Data de entrada inválida. Use o seletor de data.";
-  }
-
-  if (form.sexo !== "Macho" && form.sexo !== "Fêmea") {
-    return "Selecione o sexo (Macho ou Fêmea).";
-  }
-
   const idadeRaw = form.idade.trim();
-  if (idadeRaw === "") {
-    return "Informe a idade.";
-  }
-  const idadeNum = parseInt(idadeRaw, 10);
-  if (!Number.isInteger(idadeNum) || idadeNum < IDADE_MIN || idadeNum > IDADE_MAX) {
-    return `A idade deve ser um número inteiro entre ${IDADE_MIN} e ${IDADE_MAX}.`;
+  if (idadeRaw !== "") {
+    const idadeNum = parseInt(idadeRaw, 10);
+    if (!Number.isInteger(idadeNum) || idadeNum < IDADE_MIN || idadeNum > IDADE_MAX) {
+      return `A idade deve ser um número inteiro entre ${IDADE_MIN} e ${IDADE_MAX}.`;
+    }
   }
 
   const pesoRaw = form.peso.trim().replace(",", ".");
-  if (pesoRaw === "") {
-    return "Informe o peso em kg.";
+  if (pesoRaw !== "") {
+    const pesoNum = parseFloat(pesoRaw);
+    if (!Number.isFinite(pesoNum) || pesoNum < PESO_MIN || pesoNum > PESO_MAX) {
+      return `O peso deve ser um número entre ${PESO_MIN} e ${PESO_MAX} kg.`;
+    }
   }
-  const pesoNum = parseFloat(pesoRaw);
-  if (!Number.isFinite(pesoNum) || pesoNum < PESO_MIN || pesoNum > PESO_MAX) {
-    return `O peso deve ser um número entre ${PESO_MIN} e ${PESO_MAX} kg.`;
+
+  const dataEntrada = form.data_entrada.trim();
+  if (dataEntrada !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(dataEntrada)) {
+    return "Data de entrada inválida. Use o seletor de data.";
   }
 
   const chip = form.microchip.trim();
@@ -208,10 +204,25 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
       return;
     }
 
-    const idadeNum = parseInt(form.idade.trim(), 10);
-    const pesoNum = parseFloat(form.peso.trim().replace(",", "."));
-    const animalStateId = parseInt(form.animal_state_id.trim(), 10);
-    const estadoRow = estados.find((s) => s.id === animalStateId);
+    const dataFicha = form.data_ficha.trim();
+    const dataEntrada = form.data_entrada.trim() || dataFicha;
+
+    const idadeRaw = form.idade.trim();
+    const idadeNum = idadeRaw === "" ? 0 : parseInt(idadeRaw, 10) || 0;
+
+    const pesoRaw = form.peso.trim().replace(",", ".");
+    const pesoNum = pesoRaw === "" ? 0 : parseFloat(pesoRaw) || 0;
+
+    const sidTrim = form.animal_state_id.trim();
+    let animalStateId = /^\d+$/.test(sidTrim) ? parseInt(sidTrim, 10) : NaN;
+    if (!Number.isFinite(animalStateId) && isEdit && animalToEdit) {
+      const fallback = parseInt(animalToEdit.estado.id, 10);
+      animalStateId = Number.isFinite(fallback) ? fallback : NaN;
+    }
+
+    const estadoRow = Number.isFinite(animalStateId)
+      ? estados.find((s) => s.id === animalStateId)
+      : undefined;
     const nomeEstadoNovo = estadoRow?.nome ?? "";
     const wasAdotado = animalToEdit ? isEstadoAdotado(animalToEdit.estado.nome) : false;
     const nowAdotado = isEstadoAdotado(nomeEstadoNovo);
@@ -222,19 +233,20 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
         : form.nome.trim()
       : undefined;
 
-    const payload = {
+    const sexoResolved: SexoAnimal = form.sexo === "Fêmea" ? "Fêmea" : "Macho";
+
+    const basePayload = {
       nome: form.nome.trim(),
       raca: form.raca.trim(),
       microchip: form.microchip.trim() === "" ? null : form.microchip.trim(),
-      data_ficha: form.data_ficha.trim(),
+      data_ficha: dataFicha,
       especie: form.especie.trim(),
-      sexo: form.sexo as SexoAnimal,
+      sexo: sexoResolved,
       idade: idadeNum,
       peso: pesoNum,
       cor: form.cor.trim(),
-      data_entrada: form.data_entrada.trim(),
+      data_entrada: dataEntrada,
       observacoes: form.observacoes.trim(),
-      animal_state_id: animalStateId,
       vermifugado: form.vermifugado,
       vacinado: form.vacinado,
       castrado: form.castrado,
@@ -243,14 +255,25 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
     setSubmitting(true);
     try {
       if (isEdit && animalToEdit) {
-        await updateAnimal(animalToEdit.id, payload);
+        if (!Number.isFinite(animalStateId)) {
+          setFormError("Selecione o estado no abrigo para salvar a edição.");
+          setSubmitting(false);
+          return;
+        }
+        await updateAnimal(animalToEdit.id, {
+          ...basePayload,
+          animal_state_id: animalStateId,
+        });
         await onSaved({
           action: "update",
           adoptedCelebration,
           animalNome: animalNomeCelebration,
         });
       } else {
-        await createAnimal(payload);
+        await createAnimal({
+          ...basePayload,
+          ...(Number.isFinite(animalStateId) ? { animal_state_id: animalStateId } : {}),
+        });
         await onSaved({
           action: "create",
           adoptedCelebration,
@@ -298,7 +321,6 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
               <span className="form-label">Nome</span>
               <input
                 ref={firstFieldRef}
-                required
                 value={form.nome}
                 onChange={(e) => update("nome", e.target.value)}
                 className="mt-1 form-control"
@@ -332,16 +354,13 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
             <label className="block">
               <span className="form-label">Sexo</span>
               <select
-                required
                 value={form.sexo}
                 onChange={(e) =>
                   update("sexo", e.target.value === "" ? "" : (e.target.value as SexoAnimal))
                 }
                 className="mt-1 form-control"
               >
-                <option value="" disabled>
-                  Selecione…
-                </option>
+                <option value="">Não informado</option>
                 {SEXOS_ANIMAL.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -352,7 +371,6 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
             <label className="block sm:col-span-2">
               <span className="form-label">Estado no abrigo</span>
               <select
-                required
                 value={form.animal_state_id}
                 onChange={(e) => update("animal_state_id", e.target.value)}
                 className="mt-1 form-control"
@@ -384,7 +402,6 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
             <label className="block">
               <span className="form-label">Idade (anos)</span>
               <input
-                required
                 type="number"
                 min={IDADE_MIN}
                 max={IDADE_MAX}
@@ -398,7 +415,6 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
             <label className="block">
               <span className="form-label">Peso (kg)</span>
               <input
-                required
                 type="number"
                 min={PESO_MIN}
                 max={PESO_MAX}
@@ -413,7 +429,6 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
             <CreatableCatalogCombobox
               label="Cor"
               kind="cor"
-              required
               value={form.cor}
               onChange={(v) => update("cor", v)}
             />
@@ -437,7 +452,6 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
             <label className="block sm:col-span-2">
               <span className="form-label">Data de entrada</span>
               <input
-                required
                 type="date"
                 value={form.data_entrada}
                 onChange={(e) => update("data_entrada", e.target.value)}
@@ -447,7 +461,6 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
             <label className="block sm:col-span-2">
               <span className="form-label">Observações</span>
               <textarea
-                required
                 rows={3}
                 value={form.observacoes}
                 onChange={(e) => update("observacoes", e.target.value)}
