@@ -3,4 +3,9 @@ export type Adotante = {
   nome: string;
   cpf: string;
   telefone: string;
+  rg: string;
+  endereco: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
 };

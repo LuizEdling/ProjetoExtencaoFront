@@ -138,10 +138,69 @@ body{
   --text-secondary: #9aa5b1;
   --light-gray: #4a5568;
   --highlighted-text: #a8c528;
+
+  /* Superfícies de feedback: no :root são pastéis para fundo claro; no escuro precisam harmonizar com o texto claro */
+  --light-green-bg: color-mix(in srgb, var(--light-green) 18%, var(--background-first-layer));
+  --red-bg: color-mix(in srgb, var(--error-advice) 22%, var(--background-first-layer));
+  --green-bg: color-mix(in srgb, var(--green) 16%, var(--background-first-layer));
+  --orange-bg: color-mix(in srgb, var(--orange) 14%, var(--background-first-layer));
+  --blue-bg: color-mix(in srgb, var(--blue) 14%, var(--background-first-layer));
 }
 
 .dark img[src^="/icons/sidebar/"] {
   filter: invert(1);
+}
+
+/* —— Scrollbar (painel e blocos com overflow) —— */
+.scroll-painel {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--light-green) 50%, var(--light-gray) 35%)
+    color-mix(in srgb, var(--background-first-layer) 85%, transparent);
+}
+
+.scroll-painel::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.scroll-painel::-webkit-scrollbar-track {
+  margin-block: 4px;
+  margin-inline: 2px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--background-first-layer) 75%, transparent);
+}
+
+.scroll-painel::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+  background-color: color-mix(in srgb, var(--light-green) 42%, var(--text-secondary) 38%);
+}
+
+.scroll-painel::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--light-green) 62%, var(--text-secondary) 22%);
+}
+
+.scroll-painel::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.dark .scroll-painel {
+  scrollbar-color: color-mix(in srgb, var(--light-green) 55%, var(--light-gray) 30%)
+    color-mix(in srgb, var(--background-second-layer) 70%, transparent);
+}
+
+.dark .scroll-painel::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--background-first-layer) 55%, transparent);
+}
+
+.dark .scroll-painel::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--light-green) 35%, var(--text-secondary) 45%);
+}
+
+.dark .scroll-painel::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--light-green) 55%, var(--text-secondary) 30%);
 }
 
 /* —— Form (shared by fichas modals + combobox) —— */

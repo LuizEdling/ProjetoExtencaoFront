@@ -81,7 +81,7 @@ export default function FlashBanner({ flash, onDismiss }: Props) {
           aria-label="Fechar aviso"
           className="
             shrink-0 rounded-lg p-1 -m-1 transition-colors
-            hover:bg-black/5
+            hover:bg-[color-mix(in_srgb,var(--text-primary)_10%,transparent)]
             focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
           "
         >

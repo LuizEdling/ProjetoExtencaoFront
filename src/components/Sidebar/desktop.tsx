@@ -23,12 +23,13 @@ export default function SidebarDesktop() {
   return (
     <section
       className="
-        h-screen w-65 shrink-0
-        px-10 py-4
-        flex flex-col
-        bg-(--background-second-layer)
-        justify-between
+        fixed inset-y-0 left-0 z-30
+        flex h-screen w-65 flex-col
+        overflow-y-auto overflow-x-hidden
         border-r border-(--light-gray)/30
+        bg-(--background-second-layer)
+        px-10 py-4
+        justify-between
       "
     >
       <div>

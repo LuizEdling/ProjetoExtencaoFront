@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 import { estadoBadgeClass, estadoDotClass } from "../../constants/animalEstadoStyles";
 import { formatDateBR, formatPesoKg } from "../../lib/formatFicha";
 import type { AnimalFicha } from "../../types/animalFicha";
+import { cuidadosSummary } from "./AnimalCuidadosCheckboxes";
 
 type Props = {
   animal: AnimalFicha | null;
@@ -67,6 +68,25 @@ export default function FichaDetalheModal({ animal, onClose }: Props) {
     { label: "Idade", value: `${animal.idade} anos` },
     { label: "Peso", value: formatPesoKg(animal.peso) },
     { label: "Cor", value: animal.cor },
+    {
+      label: "Microchip",
+      value: animal.microchip.trim() !== "" ? animal.microchip : "—",
+      valueClassName: "tabular-nums",
+    },
+    {
+      label: "Cuidados",
+      value: (
+        <div className="space-y-1 text-(--text-secondary)">
+          <p className="text-(--text-primary) font-medium">{cuidadosSummary(animal)}</p>
+          <ul className="list-none space-y-0.5 text-xs font-normal">
+            <li>Vermifugado: {animal.vermifugado ? "Sim" : "Não"}</li>
+            <li>Vacinado: {animal.vacinado ? "Sim" : "Não"}</li>
+            <li>Castrado: {animal.castrado ? "Sim" : "Não"}</li>
+          </ul>
+        </div>
+      ),
+      valueClassName: "font-normal",
+    },
     { label: "Entrada", value: formatDateBR(animal.dataEntrada) },
     {
       label: "Observações",

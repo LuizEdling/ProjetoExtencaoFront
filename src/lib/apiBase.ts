@@ -42,3 +42,19 @@ export function getPainelEndpoint(): string {
   }
   return `${base}/api/painel`;
 }
+
+export function getAdocoesEndpoint(): string {
+  const base = getApiBase();
+  if (!base) {
+    throw new Error("Configure VITE_APP_URL no arquivo .env (raiz do projeto).");
+  }
+  return `${base}/api/adocoes`;
+}
+
+export function getRelatoriosEndpoint(): string {
+  const base = getApiBase();
+  if (!base) {
+    throw new Error("Configure VITE_APP_URL no arquivo .env (raiz do projeto).");
+  }
+  return `${base}/api/relatorios`;
+}

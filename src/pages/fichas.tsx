@@ -1,19 +1,16 @@
 import { isAxiosError } from "axios";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import FlashBanner, { type FlashPayload } from "../components/FlashBanner";
 import AnimalEstadoSelect from "../components/Fichas/AnimalEstadoSelect";
+import { AnimalCuidadoCheckboxCell, type CuidadosKey } from "../components/Fichas/AnimalCuidadosCheckboxes";
 import FichaAdicionarModal from "../components/Fichas/FichaAdicionarModal";
 import FichaDetalheModal from "../components/Fichas/FichaDetalheModal";
-import { estadoDotClass } from "../constants/animalEstadoStyles";
 import { formatDateBR } from "../lib/formatFicha";
-import { deleteAnimal, fetchAnimals } from "../services/animalsApi";
+import { adoptionCelebrationMessage } from "../lib/adoptionCelebrationMessage";
+import { deleteAnimal, fetchAnimalsPage, patchAnimalCuidados } from "../services/animalsApi";
 import { fetchAnimalStates } from "../services/animalStatesApi";
 import type { AnimalEstadoApiRow } from "../services/animalStatesApi";
 import type { AnimalFicha } from "../types/animalFicha";
-
-function normalize(s: string) {
-  return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-}
 
 function loadErrorMessage(err: unknown): string {
   if (isAxiosError(err)) {
@@ -22,10 +19,6 @@ function loadErrorMessage(err: unknown): string {
   }
   if (err instanceof Error) return err.message;
   return "Erro ao carregar os animais.";
-}
-
-function adoptionCelebrationMessage(nome: string): string {
-  return `Parabéns! ${nome} agora está adotado — uma conquista incrível para o abrigo!`;
 }
 
 function deleteErrorMessage(err: unknown): string {
@@ -37,59 +30,83 @@ function deleteErrorMessage(err: unknown): string {
   return "Não foi possível excluir a ficha.";
 }
 
+function cuidadosPatchErrorMessage(err: unknown): string {
+  if (isAxiosError(err)) {
+    const data = err.response?.data as { message?: string } | undefined;
+    return data?.message ?? err.message ?? "Não foi possível atualizar os cuidados.";
+  }
+  if (err instanceof Error) return err.message;
+  return "Não foi possível atualizar os cuidados.";
+}
+
 export default function Fichas() {
   const [animais, setAnimais] = useState<AnimalFicha[]>([]);
   const [estadosCatalogo, setEstadosCatalogo] = useState<AnimalEstadoApiRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
+  const [qApi, setQApi] = useState("");
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
   const [selecionado, setSelecionado] = useState<AnimalFicha | null>(null);
   const [fichaFormOpen, setFichaFormOpen] = useState(false);
   const [animalToEdit, setAnimalToEdit] = useState<AnimalFicha | null>(null);
   const [flash, setFlash] = useState<FlashPayload | null>(null);
+  const [savingCuidadosKey, setSavingCuidadosKey] = useState<string | null>(null);
 
   const dismissFlash = useCallback(() => setFlash(null), []);
 
-  const refreshAnimals = useCallback(async () => {
+  useEffect(() => {
+    const trimmed = busca.trim();
+    if (trimmed === "") {
+      setQApi("");
+      return;
+    }
+    const t = window.setTimeout(() => setQApi(trimmed), 400);
+    return () => window.clearTimeout(t);
+  }, [busca]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [qApi]);
+
+  const loadList = useCallback(async () => {
+    setLoading(true);
     setLoadError(null);
     try {
-      const list = await fetchAnimals();
-      setAnimais(list);
+      const res = await fetchAnimalsPage({ page, perPage: 10, q: qApi || undefined });
+      setAnimais(res.data);
+      setLastPage(res.lastPage);
+      setPerPage(res.perPage);
+      setTotal(res.total);
     } catch (e) {
       setLoadError(loadErrorMessage(e));
+      setAnimais([]);
+      setLastPage(1);
+      setPerPage(10);
+      setTotal(0);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [page, qApi]);
+
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const [list, estados] = await Promise.all([fetchAnimals(), fetchAnimalStates()]);
-        if (!cancelled) {
-          setAnimais(list);
-          setEstadosCatalogo(estados);
-        }
-      } catch (e) {
-        if (!cancelled) setLoadError(loadErrorMessage(e));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+    fetchAnimalStates()
+      .then((estados) => {
+        if (!cancelled) setEstadosCatalogo(estados);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
-
-  const filtradas = useMemo(() => {
-    const q = normalize(busca.trim());
-    if (!q) return animais;
-    return animais.filter((a) => {
-      const hay = `${a.nome} ${a.raca} ${a.especie}`;
-      return normalize(hay).includes(q);
-    });
-  }, [animais, busca]);
 
   function openAddFicha() {
     setAnimalToEdit(null);
@@ -114,19 +131,12 @@ export default function Fichas() {
     setSelecionado(null);
   }
 
-  function onCardKeyDown(e: React.KeyboardEvent, a: AnimalFicha) {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      abrirFicha(a);
-    }
-  }
-
   async function handleSaved(detail: {
     action: "create" | "update";
     adoptedCelebration?: boolean;
     animalNome?: string;
   }) {
-    await refreshAnimals();
+    await loadList();
     try {
       const estados = await fetchAnimalStates();
       setEstadosCatalogo(estados);
@@ -156,6 +166,19 @@ export default function Fichas() {
     setAnimalToEdit((cur) => (cur?.id === animalId ? next : cur));
   }
 
+  async function handleCuidadosToggle(animal: AnimalFicha, key: CuidadosKey, checked: boolean) {
+    const sk = `${animal.id}-${key}`;
+    setSavingCuidadosKey(sk);
+    try {
+      const next = await patchAnimalCuidados(animal.id, { [key]: checked });
+      handleEstadoUpdated(animal.id, next);
+    } catch (err) {
+      setFlash({ variant: "error", message: cuidadosPatchErrorMessage(err) });
+    } finally {
+      setSavingCuidadosKey(null);
+    }
+  }
+
   async function handleDelete(e: React.MouseEvent, animal: AnimalFicha) {
     e.stopPropagation();
     if (
@@ -167,10 +190,14 @@ export default function Fichas() {
     }
     try {
       await deleteAnimal(animal.id);
-      setAnimais((prev) => prev.filter((a) => a.id !== animal.id));
       setSelecionado((cur) => (cur?.id === animal.id ? null : cur));
       if (animalToEdit?.id === animal.id) closeFichaModal();
       setFlash({ variant: "success", message: "Ficha deletada com sucesso." });
+      if (animais.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        await loadList();
+      }
     } catch (err) {
       setFlash({ variant: "error", message: deleteErrorMessage(err) });
     }
@@ -213,7 +240,7 @@ export default function Fichas() {
                 type="search"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar por nome, raça ou espécie..."
+                placeholder="Buscar por nome, raça, espécie ou microchip..."
                 disabled={loading || !!loadError}
                 className="
                   w-full rounded-full border border-(--light-gray)/50
@@ -247,123 +274,202 @@ export default function Fichas() {
         <p className="text-center text-(--text-secondary) py-16">Carregando animais…</p>
       )}
 
-      {!loading && !loadError && animais.length === 0 && (
+      {!loading && !loadError && total === 0 && !qApi && (
         <p className="text-center text-(--text-secondary) py-16 rounded-2xl border border-(--light-gray)/25 bg-(--background-second-layer)">
           Nenhum animal cadastrado ainda. Use &quot;Adicionar Ficha&quot; para incluir o primeiro.
         </p>
       )}
 
-      {!loading && !loadError && animais.length > 0 && filtradas.length === 0 && (
+      {!loading && !loadError && total === 0 && qApi && (
         <p className="text-center text-(--text-secondary) py-16 rounded-2xl border border-(--light-gray)/25 bg-(--background-second-layer)">
           Nenhum animal encontrado para essa busca.
         </p>
       )}
 
-      {!loading && !loadError && filtradas.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {filtradas.map((animal) => (
-            <article
-              key={animal.id}
+      {!loading && !loadError && total > 0 && (
+        <div
+          className="
+            rounded-2xl border border-(--light-gray)/25
+            bg-(--background-second-layer)
+            shadow-sm overflow-hidden overflow-x-auto
+          "
+        >
+          <table className="w-full min-w-[62rem] text-sm text-left">
+            <thead className="bg-(--background-first-layer) text-(--text-secondary)">
+              <tr>
+                <th className="p-3 min-w-[10rem]">Animal</th>
+                <th className="p-3 hidden md:table-cell">Raça</th>
+                <th className="p-3 hidden lg:table-cell">Espécie</th>
+                <th className="p-3 whitespace-nowrap hidden md:table-cell">Microchip</th>
+                <th className="p-3 whitespace-nowrap">Estado</th>
+                <th className="p-3 whitespace-nowrap hidden sm:table-cell">Data ficha</th>
+                <th className="p-3 text-center w-24">Vermifugado</th>
+                <th className="p-3 text-center w-24">Vacinado</th>
+                <th className="p-3 text-center w-24">Castrado</th>
+                <th className="p-3 text-right whitespace-nowrap">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {animais.map((animal) => (
+                <tr
+                  key={animal.id}
+                  className="border-t border-(--light-gray)/20 hover:bg-(--background-first-layer)/30 transition-colors"
+                >
+                  <td className="p-3 align-top">
+                    <button
+                      type="button"
+                      onClick={() => abrirFicha(animal)}
+                      className="
+                        text-left font-semibold text-(--text-primary) leading-snug
+                        hover:text-(--green-title) hover:underline underline-offset-2
+                        focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text) rounded
+                      "
+                    >
+                      {animal.nome}
+                    </button>
+                    <p className="mt-1 text-xs text-(--text-secondary) md:hidden">{animal.raca}</p>
+                    <p className="mt-0.5 text-[0.65rem] text-(--text-secondary)/80 lg:hidden">{animal.especie}</p>
+                    <p className="mt-1 text-xs text-(--text-secondary) md:hidden tabular-nums">
+                      Microchip · {animal.microchip.trim() !== "" ? animal.microchip : "—"}
+                    </p>
+                    <p className="mt-1 text-xs text-(--text-secondary) sm:hidden tabular-nums">
+                      Ficha · {formatDateBR(animal.data)}
+                    </p>
+                  </td>
+                  <td className="p-3 text-(--text-primary) hidden md:table-cell align-top">{animal.raca}</td>
+                  <td className="p-3 text-(--text-primary) hidden lg:table-cell align-top">{animal.especie}</td>
+                  <td className="p-3 text-(--text-secondary) tabular-nums hidden md:table-cell align-top whitespace-nowrap">
+                    {animal.microchip.trim() !== "" ? animal.microchip : "—"}
+                  </td>
+                  <td className="p-3 align-top" onClick={(e) => e.stopPropagation()}>
+                    <div className="inline-flex min-w-0 max-w-full">
+                      <AnimalEstadoSelect
+                        animal={animal}
+                        estados={estadosCatalogo}
+                        onUpdated={(next) => handleEstadoUpdated(animal.id, next)}
+                        onSuccessNotify={({ celebration, animalNome }) =>
+                          setFlash(
+                            celebration
+                              ? {
+                                  variant: "success",
+                                  celebration: true,
+                                  message: adoptionCelebrationMessage(animalNome),
+                                }
+                              : { variant: "success", message: "Estado atualizado com sucesso." },
+                          )
+                        }
+                      />
+                    </div>
+                  </td>
+                  <td className="p-3 text-(--text-secondary) tabular-nums hidden sm:table-cell align-top whitespace-nowrap">
+                    {formatDateBR(animal.data)}
+                  </td>
+                  <td className="p-2 align-middle bg-(--background-first-layer)/15">
+                    <AnimalCuidadoCheckboxCell
+                      cuidado="vermifugado"
+                      checked={animal.vermifugado}
+                      busy={savingCuidadosKey === `${animal.id}-vermifugado`}
+                      onChange={(c) => {
+                        void handleCuidadosToggle(animal, "vermifugado", c);
+                      }}
+                    />
+                  </td>
+                  <td className="p-2 align-middle bg-(--background-first-layer)/15">
+                    <AnimalCuidadoCheckboxCell
+                      cuidado="vacinado"
+                      checked={animal.vacinado}
+                      busy={savingCuidadosKey === `${animal.id}-vacinado`}
+                      onChange={(c) => {
+                        void handleCuidadosToggle(animal, "vacinado", c);
+                      }}
+                    />
+                  </td>
+                  <td className="p-2 align-middle bg-(--background-first-layer)/15">
+                    <AnimalCuidadoCheckboxCell
+                      cuidado="castrado"
+                      checked={animal.castrado}
+                      busy={savingCuidadosKey === `${animal.id}-castrado`}
+                      onChange={(c) => {
+                        void handleCuidadosToggle(animal, "castrado", c);
+                      }}
+                    />
+                  </td>
+                  <td className="p-3 align-top text-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="inline-flex gap-1 justify-end">
+                      <button
+                        type="button"
+                        aria-label={`Editar ficha de ${animal.nome}`}
+                        onClick={() => openEditFicha(animal)}
+                        className="
+                          rounded-xl p-2 text-(--text-secondary)
+                          border border-(--light-gray)/40 bg-(--background-second-layer)
+                          hover:text-(--light-green) hover:border-(--light-green)/50
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
+                          transition-colors
+                        "
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Excluir ficha de ${animal.nome}`}
+                        onClick={(e) => handleDelete(e, animal)}
+                        className="
+                          rounded-xl p-2 text-(--text-secondary)
+                          border border-(--light-gray)/40 bg-(--background-second-layer)
+                          hover:text-(--error-advice) hover:border-(--error-advice)/45
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
+                          transition-colors
+                        "
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <path d="M3 6h18M8 6V4h8v2m-9 4v10m10-10v10M10 11v6M14 11v6" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {!loading && !loadError && total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <p className="text-sm text-(--text-secondary)">
+            Página {page} de {lastPage} · {total} ficha{total === 1 ? "" : "s"} · {perPage} por página
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
               className="
-                flex flex-col rounded-2xl overflow-hidden
-                bg-(--background-second-layer)
-                border border-(--light-gray)/30 shadow-md
-                hover:border-(--light-green)/45 hover:shadow-lg
-                transition-all duration-200
+                px-4 py-2 rounded-full text-sm font-medium border border-(--light-gray)/50
+                text-(--text-primary) hover:bg-(--background-first-layer)
+                disabled:opacity-40 disabled:pointer-events-none
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
               "
             >
-              <div
-                className="
-                  flex flex-wrap items-start gap-3 p-4
-                  bg-(--background-first-layer)/40 border-b border-(--light-gray)/25
-                "
-              >
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-(--text-secondary)">
-                    Estado no abrigo
-                  </p>
-                  <p className="text-xs text-(--text-secondary) leading-snug">
-                    <span className="text-(--text-secondary)/90">Atual: </span>
-                    <span className="inline-flex items-center gap-1.5 font-medium text-(--text-primary)">
-                      <span className={`${estadoDotClass(animal.estado.nome)}`} aria-hidden />
-                      {animal.estado.nome}
-                    </span>
-                  </p>
-                </div>
-                <div className="flex shrink-0 gap-1.5 self-start pt-0.5">
-                  <AnimalEstadoSelect
-                    animal={animal}
-                    estados={estadosCatalogo}
-                    onUpdated={(next) => handleEstadoUpdated(animal.id, next)}
-                    onSuccessNotify={({ celebration, animalNome }) =>
-                      setFlash(
-                        celebration
-                          ? {
-                              variant: "success",
-                              celebration: true,
-                              message: adoptionCelebrationMessage(animalNome),
-                            }
-                          : { variant: "success", message: "Estado atualizado com sucesso." },
-                      )
-                    }
-                  />
-                  <button
-                    type="button"
-                    aria-label={`Editar ficha de ${animal.nome}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openEditFicha(animal);
-                    }}
-                    className="
-                      rounded-xl p-2 text-(--text-secondary)
-                      border border-(--light-gray)/40 bg-(--background-second-layer)
-                      hover:text-(--light-green) hover:border-(--light-green)/50
-                      focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
-                      transition-colors
-                    "
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                      <path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Excluir ficha de ${animal.nome}`}
-                    onClick={(e) => handleDelete(e, animal)}
-                    className="
-                      rounded-xl p-2 text-(--text-secondary)
-                      border border-(--light-gray)/40 bg-(--background-second-layer)
-                      hover:text-(--error-advice) hover:border-(--error-advice)/45
-                      focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
-                      transition-colors
-                    "
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                      <path d="M3 6h18M8 6V4h8v2m-9 4v10m10-10v10M10 11v6M14 11v6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => abrirFicha(animal)}
-                onKeyDown={(e) => onCardKeyDown(e, animal)}
-                className="
-                  flex flex-col flex-1 min-h-[120px] p-5 cursor-pointer text-left
-                  outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-(--highlighted-text)
-                "
-              >
-                <p className="font-semibold text-lg text-(--text-primary) leading-snug">{animal.nome}</p>
-                <p className="mt-1.5 text-sm text-(--text-secondary)">{animal.raca}</p>
-                <p className="mt-1 text-xs text-(--text-secondary)/80">{animal.especie}</p>
-                <p className="mt-auto pt-4 text-xs text-(--text-secondary) text-right tabular-nums border-t border-(--light-gray)/15">
-                  Ficha · {formatDateBR(animal.data)}
-                </p>
-              </div>
-            </article>
-          ))}
+              Anterior
+            </button>
+            <button
+              type="button"
+              disabled={page >= lastPage}
+              onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
+              className="
+                px-4 py-2 rounded-full text-sm font-medium border border-(--light-gray)/50
+                text-(--text-primary) hover:bg-(--background-first-layer)
+                disabled:opacity-40 disabled:pointer-events-none
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
+              "
+            >
+              Próxima
+            </button>
+          </div>
         </div>
       )}
 

@@ -240,16 +240,17 @@ export default function Painel() {
             ))}
           </section>
 
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 lg:items-stretch">
             <div
               className="
-                lg:col-span-2 rounded-2xl
+                lg:col-span-2 flex flex-col min-h-0 lg:max-h-[min(60vh,26rem)]
+                rounded-2xl
                 bg-(--background-second-layer)
                 border border-(--light-gray)/25
                 shadow-sm overflow-hidden
               "
             >
-              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-(--light-gray)/20">
+              <div className="flex-shrink-0 flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-(--light-gray)/20">
                 <h2 className="text-lg font-semibold text-(--text-primary)">
                   Animais aguardando atendimento
                 </h2>
@@ -263,9 +264,9 @@ export default function Painel() {
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
+              <div className="scroll-painel flex-1 min-h-0 overflow-auto">
+                <table className="w-full text-left text-sm min-w-[36rem]">
+                  <thead className="sticky top-0 z-[1] bg-(--background-second-layer) border-b border-(--light-gray)/20">
                     <tr className="text-(--text-secondary) border-b border-(--light-gray)/15">
                       <th className="font-medium px-5 py-3 whitespace-nowrap">Animal</th>
                       <th className="font-medium px-3 py-3 whitespace-nowrap">Espécie</th>
@@ -310,16 +311,17 @@ export default function Painel() {
 
             <div
               className="
+                flex flex-col min-h-0 lg:max-h-[min(60vh,26rem)]
                 rounded-2xl
                 bg-(--background-second-layer)
                 border border-(--light-gray)/25
                 shadow-sm overflow-hidden
               "
             >
-              <div className="px-5 py-4 border-b border-(--light-gray)/20">
+              <div className="flex-shrink-0 px-5 py-4 border-b border-(--light-gray)/20">
                 <h2 className="text-lg font-semibold text-(--text-primary)">Cadastrados hoje</h2>
               </div>
-              <ul className="divide-y divide-(--light-gray)/15 p-3 space-y-2">
+              <ul className="scroll-painel flex-1 min-h-0 overflow-y-auto divide-y divide-(--light-gray)/15 p-3 space-y-2">
                 {dashboard.cadastrosHoje.length === 0 && (
                   <li className="px-3 py-6 text-center text-sm text-(--text-secondary)">
                     Nenhum cadastro hoje.
@@ -394,7 +396,7 @@ export default function Painel() {
                 Nenhum lembrete dentro dos prazos de alerta.
               </p>
             ) : (
-              <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+              <div className="scroll-painel max-h-[60vh] space-y-3 overflow-y-auto pr-1">
                 {lembretesComAlerta.map((lembrete) => {
                   const dias = diasRestantes(lembrete.data);
 

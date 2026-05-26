@@ -24,9 +24,9 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-(--background-first-layer)">
+    <div className="min-h-screen bg-(--background-first-layer)">
       <SidebarDesktop />
-      <main className="flex-1 min-h-screen overflow-auto px-6 lg:px-10 py-8">
+      <main className="ml-65 min-h-screen min-w-0 overflow-y-auto px-6 py-8 lg:px-10">
         <Outlet />
       </main>
     </div>

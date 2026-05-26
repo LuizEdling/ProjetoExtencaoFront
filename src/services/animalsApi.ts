@@ -7,6 +7,7 @@ export interface AnimalFichaApi {
   id?: string | number;
   nome: string;
   raca: string;
+  microchip?: string | null;
   data_ficha: string;
   especie: string;
   sexo: SexoAnimal | string;
@@ -20,11 +21,15 @@ export interface AnimalFichaApi {
     id: number;
     nome: string;
   };
+  vermifugado?: boolean | number | string | null;
+  vacinado?: boolean | number | string | null;
+  castrado?: boolean | number | string | null;
 }
 
 export interface CreateAnimalPayload {
   nome: string;
   raca: string;
+  microchip?: string | null;
   data_ficha: string;
   especie: string;
   sexo: SexoAnimal;
@@ -33,12 +38,26 @@ export interface CreateAnimalPayload {
   cor: string;
   data_entrada: string;
   observacoes: string;
-  /** Se omitido, o backend usa o estado padrão (ex.: Esperando consulta). */
+  /** Se omitido no POST, o backend define o estado padrão (ex.: Esperando adoção). */
   animal_state_id?: number;
+  vermifugado?: boolean;
+  vacinado?: boolean;
+  castrado?: boolean;
 }
 
 /** Corpo completo para PATCH ao editar ficha (ativa validação “edição completa” na API). */
 export type UpdateAnimalPayload = CreateAnimalPayload & { animal_state_id: number };
+
+function parseBool(value: unknown): boolean {
+  if (value === true || value === 1 || value === "1") return true;
+  if (value === false || value === 0 || value === "0") return false;
+  if (typeof value === "string") {
+    const s = value.trim().toLowerCase();
+    if (s === "true") return true;
+    if (s === "false") return false;
+  }
+  return false;
+}
 
 function parseIdade(value: unknown): number {
   const n = typeof value === "number" ? value : parseInt(String(value ?? "").trim(), 10);
@@ -69,10 +88,15 @@ function parseEstado(row: AnimalFichaApi): AnimalEstadoInfo {
 }
 
 export function mapApiToFicha(row: AnimalFichaApi): AnimalFicha {
+  const chip = row.microchip;
+  const microchip =
+    chip == null || String(chip).trim() === "" ? "" : String(chip).replace(/\D/g, "").slice(0, 15);
+
   return {
     id: row.id != null ? String(row.id) : "",
     nome: row.nome ?? "",
     raca: row.raca ?? "",
+    microchip,
     data: toIsoDateOnly(row.data_ficha),
     especie: row.especie ?? "",
     sexo: parseSexo(row.sexo),
@@ -82,12 +106,17 @@ export function mapApiToFicha(row: AnimalFichaApi): AnimalFicha {
     dataEntrada: toIsoDateOnly(row.data_entrada),
     observacoes: row.observacoes ?? "",
     estado: parseEstado(row),
+    vermifugado: parseBool(row.vermifugado),
+    vacinado: parseBool(row.vacinado),
+    castrado: parseBool(row.castrado),
   };
 }
 
 export async function fetchAnimals(): Promise<AnimalFicha[]> {
   const url = getAnimalsEndpoint();
-  const { data } = await apiClient.get<AnimalFichaApi[]>(url);
+  const { data } = await apiClient.get<AnimalFichaApi[]>(url, {
+    params: { all: 1 },
+  });
   const list = Array.isArray(data) ? data : [];
   return list.map((row, index) => {
     const mapped = mapApiToFicha(row);
@@ -96,6 +125,76 @@ export async function fetchAnimals(): Promise<AnimalFicha[]> {
     }
     return mapped;
   });
+}
+
+/** Resposta paginada de `GET /api/animals?page=…` (Laravel). */
+export interface PaginatedAnimals {
+  data: AnimalFicha[];
+  currentPage: number;
+  lastPage: number;
+  perPage: number;
+  total: number;
+}
+
+interface LaravelAnimalPaginator {
+  current_page: number;
+  data: AnimalFichaApi[];
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
+function unwrapPaginator(body: unknown): LaravelAnimalPaginator | null {
+  if (body === null || typeof body !== "object") return null;
+  const root = body as Record<string, unknown>;
+  if (Array.isArray(root.data) && ("current_page" in root || "total" in root)) {
+    return root as unknown as LaravelAnimalPaginator;
+  }
+  const nested = root.data;
+  if (nested !== null && typeof nested === "object") {
+    const inner = nested as Record<string, unknown>;
+    if (Array.isArray(inner.data) && ("current_page" in inner || "total" in inner)) {
+      return inner as unknown as LaravelAnimalPaginator;
+    }
+  }
+  return null;
+}
+
+export async function fetchAnimalsPage(params: {
+  page: number;
+  perPage?: number;
+  q?: string;
+}): Promise<PaginatedAnimals> {
+  const url = getAnimalsEndpoint();
+  const { data: raw } = await apiClient.get<unknown>(url, {
+    params: {
+      page: params.page,
+      per_page: params.perPage ?? 10,
+      ...(params.q && params.q.trim() !== "" ? { q: params.q.trim() } : {}),
+    },
+  });
+
+  const data = unwrapPaginator(raw);
+  if (!data) {
+    throw new Error("Resposta de animais em formato inesperado (paginação).");
+  }
+
+  const rows = Array.isArray(data.data) ? data.data : [];
+  const mapped = rows.map((row, index) => {
+    const m = mapApiToFicha(row);
+    if (!m.id) {
+      return { ...m, id: `temp-${index}-${m.nome}` };
+    }
+    return m;
+  });
+
+  return {
+    data: mapped,
+    currentPage: Number(data.current_page) || 1,
+    lastPage: Math.max(1, Number(data.last_page) || 1),
+    perPage: Number(data.per_page) || 10,
+    total: Number(data.total) || mapped.length,
+  };
 }
 
 export async function createAnimal(body: CreateAnimalPayload): Promise<void> {
@@ -120,4 +219,25 @@ export async function deleteAnimal(animalId: string): Promise<void> {
 
 export async function patchAnimalState(animalId: string, animalStateId: number): Promise<AnimalFicha> {
   return patchAnimalRaw(animalId, { animal_state_id: animalStateId });
+}
+
+export type AnimalCuidadosPatch = Partial<
+  Pick<AnimalFicha, "vermifugado" | "vacinado" | "castrado">
+>;
+
+export async function patchAnimalCuidados(
+  animalId: string,
+  body: AnimalCuidadosPatch,
+): Promise<AnimalFicha> {
+  const payload: Record<string, unknown> = {};
+  if (Object.prototype.hasOwnProperty.call(body, "vermifugado")) {
+    payload.vermifugado = body.vermifugado;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "vacinado")) {
+    payload.vacinado = body.vacinado;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "castrado")) {
+    payload.castrado = body.castrado;
+  }
+  return patchAnimalRaw(animalId, payload);
 }
