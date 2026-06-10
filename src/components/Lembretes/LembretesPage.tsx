@@ -1,36 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Lembrete } from "../../types/lembrete";
 import { fetchLembretes, deleteLembrete } from "../../services/lembretesApi";
+import {
+  formatarDataHora,
+  labelRecorrencia,
+  mensagemAlerta,
+  temAlerta,
+} from "../../lib/lembreteAlertas";
 import LembreteModal from "./LembreteModal";
-
-function diasRestantes(data: string) {
-  const [ano, mes, dia] = data.slice(0, 10).split("-").map(Number);
-
-  const hoje = new Date();
-  const hojeSemHora = new Date(
-    hoje.getFullYear(),
-    hoje.getMonth(),
-    hoje.getDate()
-  );
-
-  const alvo = new Date(ano, mes - 1, dia);
-
-  return Math.ceil(
-    (alvo.getTime() - hojeSemHora.getTime()) / (1000 * 60 * 60 * 24)
-  );
-}
-
-function temAlerta(lembrete: Lembrete) {
-  const dias = diasRestantes(lembrete.data);
-  return dias === 7 || dias === 3 || dias === 1;
-}
-
-function mensagemAlerta(dias: number) {
-  if (dias === 7) return "Falta 1 semana";
-  if (dias === 3) return "Faltam 3 dias";
-  if (dias === 1) return "Amanha";
-  return "";
-}
 
 function BellIcon() {
   return (
@@ -139,9 +116,7 @@ export default function LembretesPage() {
 
       <div className="mb-6 flex items-center justify-between gap-4 pl-14">
         <div>
-          <h1 className="text-2xl font-bold text-(--green-title)">
-            Lembretes
-          </h1>
+          <h1 className="text-2xl font-bold text-(--green-title)">Lembretes</h1>
           <p className="text-sm text-(--text-secondary)">
             Gerencie seus lembretes e pendencias
           </p>
@@ -157,13 +132,11 @@ export default function LembretesPage() {
 
       <div className="space-y-3">
         {data.length === 0 ? (
-          <div className="text-(--text-secondary)">
-            Nenhum lembrete cadastrado
-          </div>
+          <div className="text-(--text-secondary)">Nenhum lembrete cadastrado</div>
         ) : (
           data.map((l) => {
-            const dias = diasRestantes(l.data);
             const alerta = temAlerta(l);
+            const recorrencia = labelRecorrencia(l);
 
             return (
               <div
@@ -177,12 +150,20 @@ export default function LembretesPage() {
                 <div className="flex justify-between gap-4">
                   <div>
                     <strong className="text-(--text-primary)">{l.nome}</strong>
-                    <p className="text-sm text-(--text-secondary)">
-                      {l.descricao}
-                    </p>
+                    <p className="text-sm text-(--text-secondary)">{l.descricao}</p>
                     <p className="mt-1 text-xs text-(--text-secondary)">
-                      Data: {l.data}
+                      Próxima: {formatarDataHora(l)}
                     </p>
+                    {recorrencia && (
+                      <span
+                        className="
+                          mt-2 inline-flex rounded-full bg-(--background-first-layer)
+                          px-2 py-0.5 text-xs text-(--text-secondary)
+                        "
+                      >
+                        {recorrencia}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex gap-2">
@@ -203,7 +184,7 @@ export default function LembretesPage() {
 
                 {alerta && (
                   <p className="mt-2 text-sm font-medium text-(--error-advice)">
-                    {mensagemAlerta(dias)}
+                    {mensagemAlerta(l)}
                   </p>
                 )}
               </div>
@@ -230,9 +211,7 @@ export default function LembretesPage() {
             "
           >
             <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 className="text-xl font-bold text-(--green-title)">
-                Notificacoes
-              </h2>
+              <h2 className="text-xl font-bold text-(--green-title)">Notificacoes</h2>
 
               <button
                 type="button"
@@ -249,45 +228,41 @@ export default function LembretesPage() {
               </p>
             ) : (
               <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
-                {lembretesComAlerta.map((lembrete) => {
-                  const dias = diasRestantes(lembrete.data);
-
-                  return (
-                    <div
-                      key={lembrete.id}
-                      className="
-                        rounded-xl border border-(--light-gray)/25
-                        bg-(--background-first-layer)
-                        p-4
-                      "
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <h3 className="font-semibold text-(--text-primary)">
-                            {lembrete.nome}
-                          </h3>
-                          <p className="text-sm text-(--text-secondary)">
-                            {lembrete.descricao}
-                          </p>
-                          <p className="mt-1 text-xs text-(--text-secondary)">
-                            Data: {lembrete.data}
-                          </p>
-                          <p className="mt-2 text-sm font-medium text-(--error-advice)">
-                            {mensagemAlerta(dias)}
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(lembrete)}
-                          className="rounded-full px-3 py-1 hover:bg-(--background-second-layer)"
-                        >
-                          Editar
-                        </button>
+                {lembretesComAlerta.map((lembrete) => (
+                  <div
+                    key={lembrete.id}
+                    className="
+                      rounded-xl border border-(--light-gray)/25
+                      bg-(--background-first-layer)
+                      p-4
+                    "
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="font-semibold text-(--text-primary)">
+                          {lembrete.nome}
+                        </h3>
+                        <p className="text-sm text-(--text-secondary)">
+                          {lembrete.descricao}
+                        </p>
+                        <p className="mt-1 text-xs text-(--text-secondary)">
+                          Próxima: {formatarDataHora(lembrete)}
+                        </p>
+                        <p className="mt-2 text-sm font-medium text-(--error-advice)">
+                          {mensagemAlerta(lembrete)}
+                        </p>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(lembrete)}
+                        className="rounded-full px-3 py-1 hover:bg-(--background-second-layer)"
+                      >
+                        Editar
+                      </button>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </div>

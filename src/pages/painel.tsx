@@ -2,6 +2,8 @@ import { isAxiosError } from "axios";
 import { useEffect, useMemo, useState } from "react";
 import { estadoBadgeClass, estadoDotClass } from "../constants/animalEstadoStyles";
 import { formatDateBR, formatDateTimeBR } from "../lib/formatFicha";
+import PainelSearchModal from "../components/Painel/PainelSearchModal";
+import { formatarDataHora, mensagemAlerta, temAlerta } from "../lib/lembreteAlertas";
 import { fetchLembretes } from "../services/lembretesApi";
 import { fetchPainel } from "../services/painelApi";
 import type { Lembrete } from "../types/lembrete";
@@ -54,33 +56,22 @@ function ResumoIcon({ icon, className }: { icon: ResumoCardData["icon"]; classNa
   }
 }
 
-function diasRestantes(data: string) {
-  const [ano, mes, dia] = data.slice(0, 10).split("-").map(Number);
-
-  const hoje = new Date();
-  const hojeSemHora = new Date(
-    hoje.getFullYear(),
-    hoje.getMonth(),
-    hoje.getDate()
+function SearchIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
   );
-
-  const alvo = new Date(ano, mes - 1, dia);
-
-  return Math.ceil(
-    (alvo.getTime() - hojeSemHora.getTime()) / (1000 * 60 * 60 * 24)
-  );
-}
-
-function temAlerta(lembrete: Lembrete) {
-  const dias = diasRestantes(lembrete.data);
-  return dias === 7 || dias === 3 || dias === 1;
-}
-
-function mensagemAlerta(dias: number) {
-  if (dias === 7) return "Falta 1 semana";
-  if (dias === 3) return "Faltam 3 dias";
-  if (dias === 1) return "Amanha";
-  return "";
 }
 
 function BellIcon() {
@@ -105,6 +96,7 @@ export default function Painel() {
   const [dashboard, setDashboard] = useState<PainelDashboardData | null>(null);
   const [lembretes, setLembretes] = useState<Lembrete[]>([]);
   const [alertasOpen, setAlertasOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -159,42 +151,58 @@ export default function Painel() {
 
   return (
     <div className="relative max-w-7xl mx-auto w-full space-y-8">
-      <button
-        type="button"
-        onClick={() => setAlertasOpen(true)}
-        className="
-          absolute right-0 top-0
-          flex h-11 w-11 items-center justify-center
-          rounded-full border border-(--light-gray)/25
-          bg-(--background-second-layer)
-          text-(--green-title)
-          transition hover:bg-(--background-first-layer)
-        "
-        aria-label="Abrir notificacoes de lembretes"
-      >
-        <BellIcon />
+      <div className="absolute right-0 top-0 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="
+            flex h-11 w-11 items-center justify-center
+            rounded-full border border-(--light-gray)/25
+            bg-(--background-second-layer)
+            text-(--green-title)
+            transition hover:bg-(--background-first-layer)
+          "
+          aria-label="Pesquisar"
+        >
+          <SearchIcon />
+        </button>
 
-        {lembretesComAlerta.length > 0 && (
-          <span
-            className="
-              absolute -right-1 -top-1
-              flex h-5 min-w-5 items-center justify-center
-              rounded-full bg-(--error-advice)
-              px-1 text-xs font-bold text-white
-            "
-          >
-            {lembretesComAlerta.length}
-          </span>
-        )}
-      </button>
+        <button
+          type="button"
+          onClick={() => setAlertasOpen(true)}
+          className="
+            relative flex h-11 w-11 items-center justify-center
+            rounded-full border border-(--light-gray)/25
+            bg-(--background-second-layer)
+            text-(--green-title)
+            transition hover:bg-(--background-first-layer)
+          "
+          aria-label="Abrir notificacoes de lembretes"
+        >
+          <BellIcon />
 
-      <header className="flex flex-col gap-4 pr-14">
+          {lembretesComAlerta.length > 0 && (
+            <span
+              className="
+                absolute -right-1 -top-1
+                flex h-5 min-w-5 items-center justify-center
+                rounded-full bg-(--error-advice)
+                px-1 text-xs font-bold text-white
+              "
+            >
+              {lembretesComAlerta.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      <header className="flex flex-col gap-4 pr-28">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-(--green-title) tracking-tight">
             Painel
           </h1>
           <p className="mt-1 text-(--text-secondary) text-sm sm:text-base">
-            Veja seu resumo de hoje
+            Veja seu resumo do mês
           </p>
         </div>
       </header>
@@ -319,15 +327,15 @@ export default function Painel() {
               "
             >
               <div className="flex-shrink-0 px-5 py-4 border-b border-(--light-gray)/20">
-                <h2 className="text-lg font-semibold text-(--text-primary)">Cadastrados hoje</h2>
+                <h2 className="text-lg font-semibold text-(--text-primary)">Cadastrados esse mês</h2>
               </div>
               <ul className="scroll-painel flex-1 min-h-0 overflow-y-auto divide-y divide-(--light-gray)/15 p-3 space-y-2">
-                {dashboard.cadastrosHoje.length === 0 && (
+                {dashboard.cadastrosMes.length === 0 && (
                   <li className="px-3 py-6 text-center text-sm text-(--text-secondary)">
-                    Nenhum cadastro hoje.
+                    Nenhum cadastro esse mês.
                   </li>
                 )}
-                {dashboard.cadastrosHoje.map((item) => (
+                {dashboard.cadastrosMes.map((item) => (
                   <li
                     key={item.id}
                     className="
@@ -351,7 +359,7 @@ export default function Painel() {
                       <p className="font-semibold text-(--text-primary) truncate">{item.nome}</p>
                       <p className="text-xs text-(--text-secondary) truncate">{item.tipoRaca}</p>
                     </div>
-                    <span className="text-xs tabular-nums text-(--text-secondary) shrink-0">{item.horario}</span>
+                    <span className="text-xs tabular-nums text-(--text-secondary) shrink-0">{item.data}</span>
                   </li>
                 ))}
               </ul>
@@ -397,38 +405,36 @@ export default function Painel() {
               </p>
             ) : (
               <div className="scroll-painel max-h-[60vh] space-y-3 overflow-y-auto pr-1">
-                {lembretesComAlerta.map((lembrete) => {
-                  const dias = diasRestantes(lembrete.data);
-
-                  return (
-                    <div
-                      key={lembrete.id}
-                      className="
-                        rounded-xl border border-(--light-gray)/25
-                        bg-(--background-first-layer)
-                        p-4
-                      "
-                    >
-                      <h3 className="font-semibold text-(--text-primary)">
-                        {lembrete.nome}
-                      </h3>
-                      <p className="text-sm text-(--text-secondary)">
-                        {lembrete.descricao}
-                      </p>
-                      <p className="mt-1 text-xs text-(--text-secondary)">
-                        Data: {lembrete.data}
-                      </p>
-                      <p className="mt-2 text-sm font-medium text-(--error-advice)">
-                        {mensagemAlerta(dias)}
-                      </p>
-                    </div>
-                  );
-                })}
+                {lembretesComAlerta.map((lembrete) => (
+                  <div
+                    key={lembrete.id}
+                    className="
+                      rounded-xl border border-(--light-gray)/25
+                      bg-(--background-first-layer)
+                      p-4
+                    "
+                  >
+                    <h3 className="font-semibold text-(--text-primary)">
+                      {lembrete.nome}
+                    </h3>
+                    <p className="text-sm text-(--text-secondary)">
+                      {lembrete.descricao}
+                    </p>
+                    <p className="mt-1 text-xs text-(--text-secondary)">
+                      Próxima: {formatarDataHora(lembrete)}
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-(--error-advice)">
+                      {mensagemAlerta(lembrete)}
+                    </p>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
       )}
+
+      <PainelSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

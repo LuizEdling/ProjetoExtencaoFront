@@ -1,5 +1,6 @@
 import { isAxiosError } from "axios";
 import { useCallback, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import FlashBanner, { type FlashPayload } from "../components/FlashBanner";
 import AnimalEstadoSelect from "../components/Fichas/AnimalEstadoSelect";
 import { AnimalCuidadoCheckboxCell, type CuidadosKey } from "../components/Fichas/AnimalCuidadosCheckboxes";
@@ -39,7 +40,13 @@ function cuidadosPatchErrorMessage(err: unknown): string {
   return "Não foi possível atualizar os cuidados.";
 }
 
+type FichasLocationState = {
+  openAnimal?: AnimalFicha;
+};
+
 export default function Fichas() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [animais, setAnimais] = useState<AnimalFicha[]>([]);
   const [estadosCatalogo, setEstadosCatalogo] = useState<AnimalEstadoApiRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,6 +114,15 @@ export default function Fichas() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const state = location.state as FichasLocationState | null;
+    const openAnimal = state?.openAnimal;
+    if (!openAnimal) return;
+
+    setSelecionado(openAnimal);
+    navigate(".", { replace: true, state: {} });
+  }, [location.state, navigate]);
 
   function openAddFicha() {
     setAnimalToEdit(null);

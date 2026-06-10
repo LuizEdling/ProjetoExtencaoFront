@@ -2,7 +2,7 @@ import { getPainelEndpoint } from "../lib/apiBase";
 import { apiClient } from "../lib/apiClient";
 import type {
   AnimalFila,
-  CadastroHojeItem,
+  CadastroMesItem,
   LegendaVariant,
   PainelDashboardData,
   ResumoCardData,
@@ -31,13 +31,13 @@ interface PainelCadastroApi {
   id: string;
   nome: string;
   tipo_raca: string;
-  horario: string;
+  data: string;
 }
 
 interface PainelApiResponse {
   resumos: PainelResumoApi[];
   fila_atendimento: PainelFilaApi[];
-  cadastros_hoje: PainelCadastroApi[];
+  cadastros_mes: PainelCadastroApi[];
 }
 
 function parseLegendaVariant(v: string): LegendaVariant {
@@ -72,12 +72,12 @@ function mapFila(row: PainelFilaApi): AnimalFila {
   };
 }
 
-function mapCadastro(row: PainelCadastroApi): CadastroHojeItem {
+function mapCadastro(row: PainelCadastroApi): CadastroMesItem {
   return {
     id: row.id,
     nome: row.nome,
     tipoRaca: row.tipo_raca,
-    horario: row.horario,
+    data: row.data,
   };
 }
 
@@ -87,6 +87,6 @@ export async function fetchPainel(): Promise<PainelDashboardData> {
   return {
     resumos: Array.isArray(data.resumos) ? data.resumos.map(mapResumo) : [],
     filaAtendimento: Array.isArray(data.fila_atendimento) ? data.fila_atendimento.map(mapFila) : [],
-    cadastrosHoje: Array.isArray(data.cadastros_hoje) ? data.cadastros_hoje.map(mapCadastro) : [],
+    cadastrosMes: Array.isArray(data.cadastros_mes) ? data.cadastros_mes.map(mapCadastro) : [],
   };
 }
