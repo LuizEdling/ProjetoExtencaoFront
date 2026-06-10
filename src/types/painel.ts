@@ -22,15 +22,15 @@ export interface AnimalFila {
   dataEntrada: string;
 }
 
-export interface CadastroHojeItem {
+export interface CadastroMesItem {
   id: string;
   nome: string;
   tipoRaca: string;
-  horario: string;
+  data: string;
 }
 
 export interface PainelDashboardData {
   resumos: ResumoCardData[];
   filaAtendimento: AnimalFila[];
-  cadastrosHoje: CadastroHojeItem[];
+  cadastrosMes: CadastroMesItem[];
 }
