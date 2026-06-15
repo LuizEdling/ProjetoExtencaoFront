@@ -36,7 +36,7 @@ export default function MobileLoginForm() {
           "
           >
             <img src="/logo.webp" alt="Logo do sistema" className="w-15 h-15" />
-            <p className="text-(--green-title) text-[28px] font-extralight font-family-inter">Gerenciador</p>
+            <p className="text-(--green-title) text-[28px] font-extralight font-family-inter">BorderCare</p>
           </header>
 
           <form className="flex flex-col gap-12.5" onSubmit={handleSubmit}>
