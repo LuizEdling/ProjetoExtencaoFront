@@ -33,6 +33,12 @@ const ESTADO_BADGE: Record<
     text: "text-[color:var(--green)]",
     dot: "bg-[color:var(--green)]",
   },
+  Comunitário: {
+    border: "border-(--purple)/40",
+    bg: "bg-(--purple-bg)",
+    text: "text-[color:var(--purple)]",
+    dot: "bg-[color:var(--purple)]",
+  },
 };
 
 const FALLBACK = {

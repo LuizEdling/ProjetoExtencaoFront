@@ -1,11 +1,18 @@
-import { isAxiosError } from "axios";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FlashBanner, { type FlashPayload } from "../FlashBanner";
+import AppAlert from "../ui/AppAlert";
 import AdocaoModal from "./AdocaoModal";
+import { getApiErrorMessage } from "../../lib/apiErrorMessage";
 import { adoptionCelebrationMessage } from "../../lib/adoptionCelebrationMessage";
 import { formatDateBR, toIsoDateOnly } from "../../lib/formatFicha";
-import { fetchAdocoesPage, downloadContratoPdf, openContratoPdfInNewTab } from "../../services/adocoesApi";
+import { useAppDialog } from "../../hooks/useAppDialog";
+import {
+  fetchAdocoesPage,
+  downloadContratoPdf,
+  openContratoPdfInNewTab,
+  deleteAdocao,
+} from "../../services/adocoesApi";
 import type { AdocaoListItem } from "../../types/adocao";
 
 function formatCPF(value: string | undefined) {
@@ -17,17 +24,9 @@ function formatCPF(value: string | undefined) {
     .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
 }
 
-function loadErrorMessage(err: unknown): string {
-  if (isAxiosError(err)) {
-    const data = err.response?.data as { message?: string } | undefined;
-    return data?.message ?? err.message ?? "Erro ao carregar as adoções.";
-  }
-  if (err instanceof Error) return err.message;
-  return "Erro ao carregar as adoções.";
-}
-
 export default function AdocoesPage() {
   const navigate = useNavigate();
+  const { confirm, alert } = useAppDialog();
   const [rows, setRows] = useState<AdocaoListItem[]>([]);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
@@ -37,6 +36,7 @@ export default function AdocoesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [flash, setFlash] = useState<FlashPayload | null>(null);
   const [contratoBusy, setContratoBusy] = useState<{ id: number; action: "view" | "download" } | null>(null);
+  const [undoBusy, setUndoBusy] = useState<number | null>(null);
   const [contractError, setContractError] = useState<string | null>(null);
 
   const dismissFlash = useCallback(() => setFlash(null), []);
@@ -50,7 +50,7 @@ export default function AdocoesPage() {
       setLastPage(res.lastPage);
       setTotal(res.total);
     } catch (e) {
-      setLoadError(loadErrorMessage(e));
+      setLoadError(getApiErrorMessage(e, { fallback: "Erro ao carregar as adoções." }));
       setRows([]);
       setLastPage(1);
       setTotal(0);
@@ -83,8 +83,7 @@ export default function AdocoesPage() {
       await openContratoPdfInNewTab(adocaoId);
       await loadList();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Não foi possível abrir o contrato.";
-      setContractError(msg);
+      setContractError(getApiErrorMessage(e, { fallback: "Não foi possível abrir o contrato." }));
     } finally {
       setContratoBusy(null);
     }
@@ -97,10 +96,42 @@ export default function AdocoesPage() {
       await downloadContratoPdf(adocaoId);
       await loadList();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Não foi possível gerar o contrato.";
-      setContractError(msg);
+      setContractError(getApiErrorMessage(e, { fallback: "Não foi possível gerar o contrato." }));
     } finally {
       setContratoBusy(null);
+    }
+  }
+
+  async function handleDesfazerAdocao(row: AdocaoListItem) {
+    const animalNome = row.animal?.nome?.trim() || "este animal";
+    const ok = await confirm({
+      title: "Desfazer adoção",
+      message: `Deseja desfazer a adoção de “${animalNome}”? O registro será removido e o animal voltará para Esperando adoção.`,
+      destructive: true,
+      confirmLabel: "Desfazer adoção",
+    });
+    if (!ok) return;
+
+    setUndoBusy(row.id);
+    try {
+      await deleteAdocao(row.id);
+      setFlash({
+        variant: "success",
+        message: "Adoção desfeita. O animal voltou para Esperando adoção.",
+      });
+      if (rows.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        await loadList();
+      }
+    } catch (err) {
+      await alert({
+        title: "Erro ao desfazer adoção",
+        message: getApiErrorMessage(err, { fallback: "Não foi possível desfazer a adoção." }),
+        variant: "error",
+      });
+    } finally {
+      setUndoBusy(null);
     }
   }
 
@@ -160,34 +191,18 @@ export default function AdocoesPage() {
         </div>
       </div>
 
-      {flash && (
-        <div className="mb-4">
-          <FlashBanner flash={flash} onDismiss={dismissFlash} />
-        </div>
-      )}
+      {flash && <FlashBanner flash={flash} onDismiss={dismissFlash} />}
 
       {contractError && (
-        <div
-          className="
-            mb-4 rounded-2xl border border-(--error-advice)/40 bg-(--red-bg)/50
-            px-4 py-3 text-sm text-(--error-advice)
-          "
-          role="alert"
-        >
+        <AppAlert variant="error" className="mb-4" onDismiss={() => setContractError(null)}>
           {contractError}
-        </div>
+        </AppAlert>
       )}
 
       {loadError && (
-        <div
-          className="
-            mb-4 rounded-2xl border border-(--error-advice)/40 bg-(--red-bg)/50
-            px-4 py-3 text-sm text-(--error-advice)
-          "
-          role="alert"
-        >
+        <AppAlert variant="error" className="mb-4" onDismiss={() => setLoadError(null)}>
           {loadError}
-        </div>
+        </AppAlert>
       )}
 
       <div
@@ -228,6 +243,8 @@ export default function AdocoesPage() {
                 );
                 const estadoNome = row.animal?.animal_state?.nome ?? "—";
                 const rowContratoBusy = contratoBusy?.id === row.id;
+                const rowUndoBusy = undoBusy === row.id;
+                const rowActionsBusy = rowContratoBusy || rowUndoBusy;
                 const viewLoading = rowContratoBusy && contratoBusy.action === "view";
                 const downloadLoading = rowContratoBusy && contratoBusy.action === "download";
                 return (
@@ -241,7 +258,7 @@ export default function AdocoesPage() {
                       <div className="inline-flex items-center gap-1">
                         <button
                           type="button"
-                          disabled={rowContratoBusy}
+                          disabled={rowActionsBusy}
                           onClick={() => {
                             void handleVerContrato(row.id);
                           }}
@@ -292,7 +309,7 @@ export default function AdocoesPage() {
                         </button>
                         <button
                           type="button"
-                          disabled={rowContratoBusy}
+                          disabled={rowActionsBusy}
                           onClick={() => {
                             void handleGerarContrato(row.id);
                           }}
@@ -334,6 +351,56 @@ export default function AdocoesPage() {
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                               <path
                                 d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={rowActionsBusy}
+                          onClick={() => {
+                            void handleDesfazerAdocao(row);
+                          }}
+                          title="Desfazer adoção"
+                          aria-label={`Desfazer adoção de ${row.animal?.nome ?? "animal"}`}
+                          className="
+                            rounded-full p-2 text-(--text-secondary)
+                            border border-(--light-gray)/40 bg-(--background-second-layer)
+                            hover:text-(--error-advice) hover:border-(--error-advice)/45
+                            disabled:opacity-45 disabled:pointer-events-none
+                            focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
+                            transition-colors
+                          "
+                        >
+                          {rowUndoBusy ? (
+                            <svg
+                              className="animate-spin"
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              aria-hidden
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              />
+                            </svg>
+                          ) : (
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                              <path
+                                d="M3 10h10a4 4 0 014 4v0a4 4 0 01-4 4H5M3 10l4-4M3 10l4 4"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                               />

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { filterQuickActions, type QuickAction } from "../../constants/quickActions";
 import { fetchAnimalsPage } from "../../services/animalsApi";
 import type { AnimalFicha } from "../../types/animalFicha";
+import AppAlert from "../ui/AppAlert";
 
 type Props = {
   open: boolean;
@@ -301,7 +302,11 @@ export default function PainelSearchModal({ open, onClose }: Props) {
                 <p className="px-3 py-4 text-sm text-(--text-secondary)">Buscando…</p>
               )}
               {!loadingAnimais && animaisError && (
-                <p className="px-3 py-4 text-sm text-(--error-advice)">{animaisError}</p>
+                <div className="px-3 py-2">
+                  <AppAlert variant="error" compact>
+                    {animaisError}
+                  </AppAlert>
+                </div>
               )}
               {!loadingAnimais && !animaisError && animais.length === 0 && (
                 <p className="px-3 py-4 text-sm text-(--text-secondary)">

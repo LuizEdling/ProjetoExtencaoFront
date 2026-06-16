@@ -1,11 +1,12 @@
-import { isAxiosError } from "axios";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { estadoBadgeClass, estadoDotClass } from "../../constants/animalEstadoStyles";
+import { getApiErrorMessage } from "../../lib/apiErrorMessage";
 import { isEstadoAdotado } from "../../lib/isEstadoAdotado";
 import { patchAnimalState } from "../../services/animalsApi";
 import type { AnimalEstadoApiRow } from "../../services/animalStatesApi";
 import type { AnimalFicha } from "../../types/animalFicha";
+import AppAlert from "../ui/AppAlert";
 
 type Props = {
   animal: AnimalFicha;
@@ -20,15 +21,6 @@ type MenuBox = {
   width: number;
   maxHeight: number;
 };
-
-function loadPatchError(err: unknown): string {
-  if (isAxiosError(err)) {
-    const data = err.response?.data as { message?: string } | undefined;
-    return data?.message ?? err.message ?? "Não foi possível atualizar o estado.";
-  }
-  if (err instanceof Error) return err.message;
-  return "Não foi possível atualizar o estado.";
-}
 
 function measureMenu(trigger: HTMLElement): MenuBox {
   const r = trigger.getBoundingClientRect();
@@ -121,7 +113,7 @@ export default function AnimalEstadoSelect({ animal, estados, onUpdated, onSucce
       onSuccessNotify?.({ celebration, animalNome: animal.nome });
       close();
     } catch (e) {
-      setError(loadPatchError(e));
+      setError(getApiErrorMessage(e, { fallback: "Não foi possível atualizar o estado." }));
     } finally {
       setBusy(false);
     }
@@ -236,12 +228,13 @@ export default function AnimalEstadoSelect({ animal, estados, onUpdated, onSucce
       </button>
 
       {error && (
-        <p
-          className="absolute left-0 top-full z-10 mt-1 max-w-[min(18rem,calc(100vw-2rem))] text-[0.7rem] leading-snug text-(--error-advice)"
-          role="alert"
+        <AppAlert
+          variant="error"
+          compact
+          className="absolute left-0 top-full z-10 mt-1 max-w-[min(18rem,calc(100vw-2rem))] text-[0.7rem] [&_p]:text-[0.7rem]"
         >
           {error}
-        </p>
+        </AppAlert>
       )}
 
       {menu}

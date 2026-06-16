@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { loginRequest } from "../../lib/authApi";
 import { getLoginErrorMessage } from "../../lib/loginErrorMessage";
 import image from "../../assets/images/Login/GreenShade.png";
+import LoginPasswordInput from "./LoginPasswordInput";
+import AppAlert from "../ui/AppAlert";
 
 export default function MobileLoginForm() {
   const navigate = useNavigate();
@@ -41,9 +43,9 @@ export default function MobileLoginForm() {
 
           <form className="flex flex-col gap-12.5" onSubmit={handleSubmit}>
             {error ? (
-              <p className="text-sm text-red-600 dark:text-red-400 text-center" role="alert">
+              <AppAlert variant="error" compact className="text-center [&_p]:text-center">
                 {error}
-              </p>
+              </AppAlert>
             ) : null}
 
             <div className="flex flex-col">
@@ -81,30 +83,11 @@ export default function MobileLoginForm() {
               <label htmlFor="login-password-mobile" className="font-extralight">
                 Senha
               </label>
-              <input
+              <LoginPasswordInput
                 id="login-password-mobile"
-                name="password"
-                type="password"
-                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
                 disabled={submitting}
-                className="
-                border border-(--text-secondary)
-                mt-1
-                rounded-sm
-                h-10
-                p-2
-                transition-all duration-200
-
-                hover:border-(--green-title)
-                focus:outline-none
-                focus:border-(--green-title)
-                focus:ring-1 focus:ring-(--green-title)
-
-                active:border-(--green-title)
-              "
               />
             </div>
 

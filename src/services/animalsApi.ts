@@ -5,6 +5,7 @@ import type { AnimalEstadoInfo, AnimalFicha, SexoAnimal } from "../types/animalF
 
 export interface AnimalFichaApi {
   id?: string | number;
+  numero_protocolo?: string | null;
   nome: string;
   raca: string;
   microchip?: string | null;
@@ -16,6 +17,8 @@ export interface AnimalFichaApi {
   cor: string;
   data_entrada: string;
   observacoes: string;
+  bairro_resgate?: string | null;
+  rua_resgate?: string | null;
   animal_state_id?: number;
   animal_state?: {
     id: number;
@@ -27,6 +30,7 @@ export interface AnimalFichaApi {
 }
 
 export interface CreateAnimalPayload {
+  numero_protocolo?: string | null;
   nome: string;
   raca: string;
   microchip?: string | null;
@@ -38,6 +42,8 @@ export interface CreateAnimalPayload {
   cor: string;
   data_entrada: string;
   observacoes: string;
+  bairro_resgate?: string | null;
+  rua_resgate?: string | null;
   /** Se omitido no POST, o backend define o estado padrão (ex.: Esperando adoção). */
   animal_state_id?: number;
   vermifugado?: boolean;
@@ -94,6 +100,10 @@ export function mapApiToFicha(row: AnimalFichaApi): AnimalFicha {
 
   return {
     id: row.id != null ? String(row.id) : "",
+    numeroProtocolo:
+      row.numero_protocolo == null || String(row.numero_protocolo).trim() === ""
+        ? ""
+        : String(row.numero_protocolo).trim(),
     nome: row.nome ?? "",
     raca: row.raca ?? "",
     microchip,
@@ -105,6 +115,14 @@ export function mapApiToFicha(row: AnimalFichaApi): AnimalFicha {
     cor: row.cor ?? "",
     dataEntrada: toIsoDateOnly(row.data_entrada),
     observacoes: row.observacoes ?? "",
+    bairroResgate:
+      row.bairro_resgate == null || String(row.bairro_resgate).trim() === ""
+        ? ""
+        : String(row.bairro_resgate).trim(),
+    ruaResgate:
+      row.rua_resgate == null || String(row.rua_resgate).trim() === ""
+        ? ""
+        : String(row.rua_resgate).trim(),
     estado: parseEstado(row),
     vermifugado: parseBool(row.vermifugado),
     vacinado: parseBool(row.vacinado),
@@ -164,6 +182,9 @@ export async function fetchAnimalsPage(params: {
   page: number;
   perPage?: number;
   q?: string;
+  animal_state_id?: number;
+  bairro_resgate?: string;
+  rua_resgate?: string;
 }): Promise<PaginatedAnimals> {
   const url = getAnimalsEndpoint();
   const { data: raw } = await apiClient.get<unknown>(url, {
@@ -171,6 +192,13 @@ export async function fetchAnimalsPage(params: {
       page: params.page,
       per_page: params.perPage ?? 10,
       ...(params.q && params.q.trim() !== "" ? { q: params.q.trim() } : {}),
+      ...(params.animal_state_id != null ? { animal_state_id: params.animal_state_id } : {}),
+      ...(params.bairro_resgate && params.bairro_resgate.trim() !== ""
+        ? { bairro_resgate: params.bairro_resgate.trim() }
+        : {}),
+      ...(params.rua_resgate && params.rua_resgate.trim() !== ""
+        ? { rua_resgate: params.rua_resgate.trim() }
+        : {}),
     },
   });
 
@@ -240,4 +268,13 @@ export async function patchAnimalCuidados(
     payload.castrado = body.castrado;
   }
   return patchAnimalRaw(animalId, payload);
+}
+
+export async function fetchProximoProtocolo(dataFicha: string): Promise<string> {
+  const base = getAnimalsEndpoint();
+  const { data } = await apiClient.get<{ numero_protocolo?: string }>(`${base}/proximo-protocolo`, {
+    params: { data_ficha: dataFicha },
+  });
+  const raw = data?.numero_protocolo;
+  return raw == null ? "" : String(raw).trim();
 }

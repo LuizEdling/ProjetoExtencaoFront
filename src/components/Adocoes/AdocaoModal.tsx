@@ -1,11 +1,13 @@
 import { isAxiosError } from "axios";
 import { useEffect, useId, useRef, useState } from "react";
+import { getApiErrorMessage } from "../../lib/apiErrorMessage";
 import { isEstadoAdotado } from "../../lib/isEstadoAdotado";
 import { fetchAdotantes } from "../../services/adotantesApi";
 import { createAdocao } from "../../services/adocoesApi";
 import { fetchAnimals } from "../../services/animalsApi";
 import type { Adotante } from "../../types/adotante";
 import type { AnimalFicha } from "../../types/animalFicha";
+import AppAlert from "../ui/AppAlert";
 
 type Props = {
   open: boolean;
@@ -30,10 +32,8 @@ function fieldError(err: unknown): string {
       const first = Object.values(data.errors).flat()[0];
       if (first) return first;
     }
-    return data?.message ?? err.message ?? "Não foi possível registrar a adoção.";
   }
-  if (err instanceof Error) return err.message;
-  return "Não foi possível registrar a adoção.";
+  return getApiErrorMessage(err, { fallback: "Não foi possível registrar a adoção." });
 }
 
 export default function AdocaoModal({ open, onClose, onSaved }: Props) {
@@ -202,9 +202,9 @@ export default function AdocaoModal({ open, onClose, onSaved }: Props) {
 
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 p-6 sm:p-8 sm:pt-6">
           {loadError && (
-            <p className="text-sm text-(--error-advice)" role="alert">
+            <AppAlert variant="error" compact>
               {loadError}
-            </p>
+            </AppAlert>
           )}
 
           <label className="block">
@@ -263,9 +263,9 @@ export default function AdocaoModal({ open, onClose, onSaved }: Props) {
           </label>
 
           {formError && (
-            <p className="text-sm text-(--error-advice) pt-0.5" role="alert">
+            <AppAlert variant="error" compact className="pt-0.5">
               {formError}
-            </p>
+            </AppAlert>
           )}
 
           <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">

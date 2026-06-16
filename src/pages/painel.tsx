@@ -1,22 +1,14 @@
-import { isAxiosError } from "axios";
 import { useEffect, useMemo, useState } from "react";
 import { estadoBadgeClass, estadoDotClass } from "../constants/animalEstadoStyles";
+import { getApiErrorMessage } from "../lib/apiErrorMessage";
 import { formatDateBR, formatDateTimeBR } from "../lib/formatFicha";
 import PainelSearchModal from "../components/Painel/PainelSearchModal";
+import AppAlert from "../components/ui/AppAlert";
 import { formatarDataHora, mensagemAlerta, temAlerta } from "../lib/lembreteAlertas";
 import { fetchLembretes } from "../services/lembretesApi";
 import { fetchPainel } from "../services/painelApi";
 import type { Lembrete } from "../types/lembrete";
 import type { AnimalFila, PainelDashboardData, ResumoCardData } from "../types/painel";
-
-function loadErrorMessage(err: unknown): string {
-  if (isAxiosError(err)) {
-    const data = err.response?.data as { message?: string } | undefined;
-    return data?.message ?? err.message ?? "Erro ao carregar o painel.";
-  }
-  if (err instanceof Error) return err.message;
-  return "Erro ao carregar o painel.";
-}
 
 function ResumoIcon({ icon, className }: { icon: ResumoCardData["icon"]; className?: string }) {
   const cn = ["shrink-0", className].filter(Boolean).join(" ");
@@ -109,7 +101,7 @@ export default function Painel() {
         const data = await fetchPainel();
         if (!cancelled) setDashboard(data);
       } catch (e) {
-        if (!cancelled) setLoadError(loadErrorMessage(e));
+        if (!cancelled) setLoadError(getApiErrorMessage(e, { fallback: "Erro ao carregar o painel." }));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -208,15 +200,9 @@ export default function Painel() {
       </header>
 
       {loadError && (
-        <div
-          className="
-            rounded-2xl border border-(--error-advice)/40 bg-(--red-bg)/50
-            px-4 py-3 text-sm text-(--error-advice)
-          "
-          role="alert"
-        >
+        <AppAlert variant="error" onDismiss={() => setLoadError(null)}>
           {loadError}
-        </div>
+        </AppAlert>
       )}
 
       {loading && (

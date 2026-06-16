@@ -47,6 +47,10 @@ export async function createAdocao(body: CreateAdocaoPayload): Promise<AdocaoLis
   return data.data;
 }
 
+export async function deleteAdocao(adocaoId: number): Promise<void> {
+  await apiClient.delete(`${getAdocoesEndpoint()}/${encodeURIComponent(String(adocaoId))}`);
+}
+
 async function fetchContratoPdfBlob(adocaoId: number): Promise<Blob> {
   const url = `${getAdocoesEndpoint()}/${encodeURIComponent(String(adocaoId))}/contrato`;
   try {

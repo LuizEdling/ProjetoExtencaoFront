@@ -1,5 +1,6 @@
-import { isAxiosError } from "axios";
 import { useEffect, useId, useRef, useState } from "react";
+import { isAxiosError } from "axios";
+import { getApiErrorMessage } from "../../lib/apiErrorMessage";
 import {
   brlAmountToDigitSequence,
   formatBrlDigitSequence,
@@ -8,6 +9,7 @@ import {
 } from "../../lib/brlCurrencyMask";
 import { toIsoDateLocal } from "../../lib/formatFicha";
 import { createGasto, updateGasto } from "../../services/gastosApi";
+import AppAlert from "../ui/AppAlert";
 import type { Gasto } from "../../types/gasto";
 
 type Props = {
@@ -19,6 +21,7 @@ type Props = {
 
 type FormState = {
   valorDigits: string;
+  doacao: boolean;
   data: string;
   descricao: string;
 };
@@ -26,6 +29,7 @@ type FormState = {
 function emptyForm(): FormState {
   return {
     valorDigits: "",
+    doacao: false,
     data: toIsoDateLocal(),
     descricao: "",
   };
@@ -35,6 +39,7 @@ function getInitialForm(g: Gasto | null): FormState {
   if (!g) return emptyForm();
   return {
     valorDigits: brlAmountToDigitSequence(g.valor),
+    doacao: g.doacao,
     data: g.data,
     descricao: g.descricao,
   };
@@ -63,8 +68,16 @@ function GastoModalContent({ onClose, onSaved, gastoToEdit }: Omit<Props, "open"
     setFormError(null);
 
     const valorNum = parseBrlDigitSequence(form.valorDigits);
-    if (valorNum === null || valorNum < 0.01) {
+    if (valorNum === null) {
+      setFormError("Informe um valor válido.");
+      return;
+    }
+    if (!form.doacao && valorNum < 0.01) {
       setFormError("Informe um valor válido (mínimo R$ 0,01).");
+      return;
+    }
+    if (form.doacao && valorNum < 0) {
+      setFormError("O valor não pode ser negativo.");
       return;
     }
 
@@ -86,6 +99,7 @@ function GastoModalContent({ onClose, onSaved, gastoToEdit }: Omit<Props, "open"
 
     const payload = {
       valor: valorNum,
+      doacao: form.doacao,
       data,
       descricao,
     };
@@ -111,10 +125,8 @@ function GastoModalContent({ onClose, onSaved, gastoToEdit }: Omit<Props, "open"
             return;
           }
         }
-        setFormError(dataErr?.message ?? err.message ?? "Erro ao salvar.");
-      } else {
-        setFormError("Erro inesperado.");
       }
+      setFormError(getApiErrorMessage(err, { fallback: "Erro ao salvar." }));
     } finally {
       setSubmitting(false);
     }
@@ -141,19 +153,38 @@ function GastoModalContent({ onClose, onSaved, gastoToEdit }: Omit<Props, "open"
         <p className="text-sm text-(--text-secondary) mt-1">Registre o valor, a data e o que foi gasto.</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-3">
+          <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-(--light-gray)/30 bg-(--background-first-layer)/40 px-3 py-2.5">
+            <input
+              type="checkbox"
+              checked={form.doacao}
+              onChange={(e) => update("doacao", e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-(--light-gray)/60 text-(--light-green) focus:ring-(--highlighted-text)"
+            />
+            <span>
+              <span className="block text-sm font-medium text-(--text-primary)">É doação</span>
+              <span className="mt-0.5 block text-xs text-(--text-secondary)">
+                Doações podem ser registradas com valor R$ 0,00.
+              </span>
+            </span>
+          </label>
+
           <label className="block">
             <span className="form-label">Valor (R$)</span>
             <input
               ref={firstFieldRef}
-              required
               type="text"
               inputMode="numeric"
               autoComplete="off"
-              placeholder="0,00"
+              placeholder={form.doacao ? "0,00" : "0,00"}
               value={formatBrlDigitSequence(form.valorDigits)}
               onChange={(e) => update("valorDigits", sanitizeBrlDigitInput(e.target.value))}
               className="mt-1 form-control"
             />
+            {form.doacao && (
+              <span className="mt-1 block text-xs text-(--text-secondary)">
+                Opcional para doações — use 0,00 se não houver valor monetário.
+              </span>
+            )}
           </label>
 
           <label className="block">
@@ -180,9 +211,9 @@ function GastoModalContent({ onClose, onSaved, gastoToEdit }: Omit<Props, "open"
           </label>
 
           {formError && (
-            <p className="text-sm text-(--error-advice)" role="alert">
+            <AppAlert variant="error" compact>
               {formError}
-            </p>
+            </AppAlert>
           )}
 
           <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
