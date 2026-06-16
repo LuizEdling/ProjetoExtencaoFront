@@ -67,9 +67,11 @@ function GastoModalContent({ onClose, onSaved, gastoToEdit }: Omit<Props, "open"
     e.preventDefault();
     setFormError(null);
 
-    const valorNum = parseBrlDigitSequence(form.valorDigits);
+    const parsedValor = parseBrlDigitSequence(form.valorDigits);
+    const valorNum = parsedValor === null ? (form.doacao ? 0 : null) : parsedValor;
+
     if (valorNum === null) {
-      setFormError("Informe um valor válido.");
+      setFormError("Informe um valor válido (mínimo R$ 0,01).");
       return;
     }
     if (!form.doacao && valorNum < 0.01) {
