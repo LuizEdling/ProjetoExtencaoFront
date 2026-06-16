@@ -1,16 +1,18 @@
-import { isAxiosError } from "axios";
 import { useEffect, useId, useRef, useState } from "react";
+import { getApiErrorMessage } from "../../lib/apiErrorMessage";
 import { toIsoDateLocal } from "../../lib/formatFicha";
 import { isEstadoAdotado } from "../../lib/isEstadoAdotado";
-import { createAnimal, updateAnimal } from "../../services/animalsApi";
+import { createAnimal, fetchProximoProtocolo, updateAnimal } from "../../services/animalsApi";
 import type { AnimalEstadoApiRow } from "../../services/animalStatesApi";
 import { SEXOS_ANIMAL, type AnimalFicha, type SexoAnimal } from "../../types/animalFicha";
 import CreatableCatalogCombobox from "./CreatableCatalogCombobox";
 import AnimalCuidadosCheckboxes, { type CuidadosKey } from "./AnimalCuidadosCheckboxes";
+import AppAlert from "../ui/AppAlert";
 
 const ESPECIES_PADRAO = ["Gato", "Cachorro"] as const;
 
 const MICROCHIP_MAX_LEN = 15;
+const PROTOCOLO_REGEX = /^\d{1,10}\/\d{4}$/;
 
 const IDADE_MIN = 0;
 const IDADE_MAX = 50;
@@ -34,6 +36,7 @@ type FormState = {
   nome: string;
   raca: string;
   data_ficha: string;
+  numero_protocolo: string;
   microchip: string;
   especie: string;
   sexo: "" | SexoAnimal;
@@ -42,6 +45,8 @@ type FormState = {
   cor: string;
   data_entrada: string;
   observacoes: string;
+  bairro_resgate: string;
+  rua_resgate: string;
   animal_state_id: string;
   vermifugado: boolean;
   vacinado: boolean;
@@ -59,6 +64,7 @@ function emptyForm(estados: AnimalEstadoApiRow[]): FormState {
     nome: "",
     raca: "",
     data_ficha: toIsoDateLocal(),
+    numero_protocolo: "",
     microchip: "",
     especie: "",
     sexo: "",
@@ -67,6 +73,8 @@ function emptyForm(estados: AnimalEstadoApiRow[]): FormState {
     cor: "",
     data_entrada: "",
     observacoes: "",
+    bairro_resgate: "",
+    rua_resgate: "",
     animal_state_id: defaultEstadoId(estados),
     vermifugado: false,
     vacinado: false,
@@ -80,6 +88,7 @@ function fichaToFormState(a: AnimalFicha): FormState {
     nome: a.nome,
     raca: a.raca,
     data_ficha: a.data,
+    numero_protocolo: a.numeroProtocolo,
     microchip: a.microchip,
     especie: a.especie,
     sexo: a.sexo,
@@ -88,6 +97,8 @@ function fichaToFormState(a: AnimalFicha): FormState {
     cor: a.cor,
     data_entrada: a.dataEntrada,
     observacoes: a.observacoes,
+    bairro_resgate: a.bairroResgate,
+    rua_resgate: a.ruaResgate,
     animal_state_id: sid,
     vermifugado: a.vermifugado,
     vacinado: a.vacinado,
@@ -143,21 +154,18 @@ function validateForm(form: FormState): string | null {
     return `Microchip: no máximo ${MICROCHIP_MAX_LEN} dígitos.`;
   }
 
-  return null;
-}
-
-function fieldError(err: unknown): string {
-  if (isAxiosError(err)) {
-    const data = err.response?.data as { message?: string } | undefined;
-    return data?.message ?? err.message ?? "Não foi possível salvar.";
+  const protocolo = form.numero_protocolo.trim();
+  if (protocolo !== "" && !PROTOCOLO_REGEX.test(protocolo)) {
+    return "Nº de protocolo inválido. Use o formato número/ano (ex.: 1000/2026).";
   }
-  if (err instanceof Error) return err.message;
-  return "Não foi possível salvar.";
+
+  return null;
 }
 
 export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEdit, estados }: Props) {
   const titleId = useId();
   const firstFieldRef = useRef<HTMLInputElement>(null);
+  const protocoloEditadoManualmenteRef = useRef(false);
   const [form, setForm] = useState<FormState>(() => emptyForm([]));
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -167,12 +175,34 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
   useEffect(() => {
     if (!open) return;
     setFormError(null);
+    protocoloEditadoManualmenteRef.current = false;
     if (animalToEdit) {
       setForm(fichaToFormState(animalToEdit));
     } else {
       setForm(emptyForm(estados));
     }
   }, [open, animalToEdit, estados]);
+
+  useEffect(() => {
+    if (!open || animalToEdit) return;
+
+    let cancelled = false;
+    const dataFicha = form.data_ficha.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataFicha)) return;
+
+    void fetchProximoProtocolo(dataFicha)
+      .then((sugerido) => {
+        if (cancelled || protocoloEditadoManualmenteRef.current) return;
+        setForm((prev) => ({ ...prev, numero_protocolo: sugerido }));
+      })
+      .catch(() => {
+        /* sugestão opcional; backend gera no POST se vazio */
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, animalToEdit, form.data_ficha]);
 
   useEffect(() => {
     if (!open) return;
@@ -238,6 +268,7 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
     const basePayload = {
       nome: form.nome.trim(),
       raca: form.raca.trim(),
+      numero_protocolo: form.numero_protocolo.trim() === "" ? null : form.numero_protocolo.trim(),
       microchip: form.microchip.trim() === "" ? null : form.microchip.trim(),
       data_ficha: dataFicha,
       especie: form.especie.trim(),
@@ -247,6 +278,8 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
       cor: form.cor.trim(),
       data_entrada: dataEntrada,
       observacoes: form.observacoes.trim(),
+      bairro_resgate: form.bairro_resgate.trim() === "" ? null : form.bairro_resgate.trim(),
+      rua_resgate: form.rua_resgate.trim() === "" ? null : form.rua_resgate.trim(),
       vermifugado: form.vermifugado,
       vacinado: form.vacinado,
       castrado: form.castrado,
@@ -282,7 +315,7 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
       }
       onClose();
     } catch (err) {
-      setFormError(fieldError(err));
+      setFormError(getApiErrorMessage(err, { fallback: "Não foi possível salvar." }));
     } finally {
       setSubmitting(false);
     }
@@ -341,6 +374,18 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
                 value={form.data_ficha}
                 onChange={(e) => update("data_ficha", e.target.value)}
                 className="mt-1 form-control"
+              />
+            </label>
+            <label className="block">
+              <span className="form-label">Nº de protocolo</span>
+              <input
+                value={form.numero_protocolo}
+                onChange={(e) => {
+                  protocoloEditadoManualmenteRef.current = true;
+                  update("numero_protocolo", e.target.value);
+                }}
+                placeholder="Ex.: 1000/2026"
+                className="mt-1 form-control tabular-nums"
               />
             </label>
             <CreatableCatalogCombobox
@@ -469,10 +514,33 @@ export default function FichaAdicionarModal({ open, onClose, onSaved, animalToEd
             </label>
           </div>
 
+          <fieldset className="mt-4 rounded-xl border border-(--light-gray)/30 bg-(--background-first-layer)/40 p-4 sm:p-5">
+            <legend className="px-1 text-sm font-semibold text-(--green-title)">Local de resgate</legend>
+            <p className="mb-3 text-xs text-(--text-secondary)">Opcional — onde o animal foi resgatado.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block">
+                <span className="form-label">Bairro</span>
+                <input
+                  value={form.bairro_resgate}
+                  onChange={(e) => update("bairro_resgate", e.target.value)}
+                  className="mt-1 form-control"
+                />
+              </label>
+              <label className="block">
+                <span className="form-label">Rua</span>
+                <input
+                  value={form.rua_resgate}
+                  onChange={(e) => update("rua_resgate", e.target.value)}
+                  className="mt-1 form-control"
+                />
+              </label>
+            </div>
+          </fieldset>
+
           {formError && (
-            <p className="form-alert-enter text-sm text-(--error-advice) pt-1" role="alert">
+            <AppAlert variant="error" compact className="pt-1">
               {formError}
-            </p>
+            </AppAlert>
           )}
 
           <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">

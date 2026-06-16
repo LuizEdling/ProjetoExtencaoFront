@@ -1,4 +1,5 @@
 import { useEffect, type CSSProperties } from "react";
+import { alertToneClass } from "./ui/alertStyles";
 
 export type FlashPayload = {
   variant: "success" | "error";
@@ -40,6 +41,14 @@ function ConfettiBurst() {
   );
 }
 
+function SuccessIcon() {
+  return (
+    <svg className="shrink-0 mt-0.5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function FlashBanner({ flash, onDismiss }: Props) {
   useEffect(() => {
     if (!flash) return;
@@ -53,42 +62,42 @@ export default function FlashBanner({ flash, onDismiss }: Props) {
 
   if (!flash) return null;
 
-  const isSuccess = flash.variant === "success";
-  const celebration = isSuccess && flash.celebration;
-
-  const toneClass = celebration
-    ? "border-(--success-advice)/50 bg-(--green-bg)/80 text-(--green)"
-    : isSuccess
-      ? "border-(--light-green)/45 bg-(--light-green-bg)/70 text-(--green-title)"
-      : "border-(--error-advice)/40 bg-(--red-bg)/50 text-(--error-advice)";
+  const celebration = flash.variant === "success" && flash.celebration;
+  const toneClass = alertToneClass(flash.variant, celebration);
 
   return (
-    <div className="relative isolate w-full">
-      {celebration && <ConfettiBurst />}
-      <div
-        role={isSuccess ? "status" : "alert"}
-        aria-live={isSuccess ? "polite" : "assertive"}
-        className={`
-          relative z-10 flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm shadow-sm
-          ${toneClass}
-          ${celebration ? "flash-banner-celebrate font-medium" : ""}
-        `}
-      >
-        <p className="min-w-0 flex-1 leading-snug">{flash.message}</p>
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Fechar aviso"
-          className="
-            shrink-0 rounded-lg p-1 -m-1 transition-colors
-            hover:bg-[color-mix(in_srgb,var(--text-primary)_10%,transparent)]
-            focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
-          "
+    <div
+      className="pointer-events-none fixed top-4 right-4 z-[200] w-[min(100vw-2rem,24rem)]"
+      aria-live="polite"
+    >
+      <div className="pointer-events-auto relative isolate w-full">
+        {celebration && <ConfettiBurst />}
+        <div
+          role="status"
+          className={`
+            relative z-10 flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm shadow-lg
+            modal-panel-enter
+            ${toneClass}
+            ${celebration ? "flash-banner-celebrate font-medium" : ""}
+          `}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
-          </svg>
-        </button>
+          <SuccessIcon />
+          <p className="min-w-0 flex-1 leading-snug">{flash.message}</p>
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Fechar aviso"
+            className="
+              shrink-0 rounded-lg p-1 -m-1 transition-colors
+              hover:bg-[color-mix(in_srgb,var(--text-primary)_10%,transparent)]
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-(--highlighted-text)
+            "
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

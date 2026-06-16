@@ -9,6 +9,8 @@ export interface AnimalEstadoInfo {
 
 export interface AnimalFicha {
   id: string;
+  /** Formato 1000/2026; vazio se não informado */
+  numeroProtocolo: string;
   nome: string;
   raca: string;
   /** Apenas dígitos, até 15 caracteres; vazio se não informado */
@@ -22,6 +24,8 @@ export interface AnimalFicha {
   cor: string;
   dataEntrada: string;
   observacoes: string;
+  bairroResgate: string;
+  ruaResgate: string;
   estado: AnimalEstadoInfo;
   vermifugado: boolean;
   vacinado: boolean;

@@ -1,4 +1,3 @@
-import { isAxiosError } from "axios";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -15,6 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { RELATORIO_CHART } from "../../constants/relatorioCharts";
+import { getApiErrorMessage } from "../../lib/apiErrorMessage";
 import {
   addMonthsToYearMonth,
   clampYearMonthOrder,
@@ -28,17 +28,8 @@ import {
   fetchRelatoriosDashboard,
   openRelatorioPdfInNewTab,
 } from "../../services/relatoriosApi";
+import AppAlert from "../ui/AppAlert";
 import type { RelatorioDashboardData, RelatorioDashboardQuery } from "../../types/relatorios";
-
-function loadErrorMessage(err: unknown): string {
-  if (isAxiosError(err)) {
-    const data = err.response?.data as { message?: string } | undefined;
-    if (typeof data?.message === "string") return data.message;
-    return err.message ?? "Erro ao carregar os relatórios.";
-  }
-  if (err instanceof Error) return err.message;
-  return "Erro ao carregar os relatórios.";
-}
 
 function defaultCadastroRange(): { de: string; ate: string } {
   const ate = currentYearMonth();
@@ -157,7 +148,7 @@ export default function RelatoriosPage() {
       const data = await fetchRelatoriosDashboard(queryFetch);
       setDashboard(data);
     } catch (e) {
-      setLoadError(loadErrorMessage(e));
+      setLoadError(getApiErrorMessage(e, { fallback: "Erro ao carregar os relatórios." }));
       setDashboard(null);
     } finally {
       setLoading(false);
@@ -220,7 +211,7 @@ export default function RelatoriosPage() {
     try {
       await openRelatorioPdfInNewTab(queryExport);
     } catch (e) {
-      setPdfError(e instanceof Error ? e.message : "Não foi possível abrir o relatório.");
+      setPdfError(getApiErrorMessage(e, { fallback: "Não foi possível abrir o relatório." }));
     } finally {
       setPdfBusy(null);
     }
@@ -232,7 +223,7 @@ export default function RelatoriosPage() {
     try {
       await downloadRelatorioPdf(queryExport);
     } catch (e) {
-      setPdfError(e instanceof Error ? e.message : "Não foi possível baixar o relatório.");
+      setPdfError(getApiErrorMessage(e, { fallback: "Não foi possível baixar o relatório." }));
     } finally {
       setPdfBusy(null);
     }
@@ -312,21 +303,15 @@ export default function RelatoriosPage() {
       </header>
 
       {pdfError && (
-        <div
-          className="rounded-2xl border border-(--error-advice)/40 bg-(--red-bg)/50 px-4 py-3 text-sm text-(--error-advice)"
-          role="alert"
-        >
+        <AppAlert variant="error" onDismiss={() => setPdfError(null)}>
           {pdfError}
-        </div>
+        </AppAlert>
       )}
 
       {loadError && (
-        <div
-          className="rounded-2xl border border-(--error-advice)/40 bg-(--red-bg)/50 px-4 py-3 text-sm text-(--error-advice)"
-          role="alert"
-        >
+        <AppAlert variant="error" onDismiss={() => setLoadError(null)}>
           {loadError}
-        </div>
+        </AppAlert>
       )}
 
       {loading && <p className="text-center text-(--text-secondary) py-12">Carregando relatórios…</p>}

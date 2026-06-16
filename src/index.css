@@ -40,6 +40,10 @@
   /* RED */
   --red: #E54D28;
   --red-bg: #FADFDf;
+
+  /* PURPLE (estado Comunitário) */
+  --purple: #8B5CF6;
+  --purple-bg: #F3EFFE;
 }
 
 /* 100 - Thin */

@@ -1,35 +1,24 @@
-import { isAxiosError } from "axios";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import GastoModal from "../components/Gastos/GastoModal";
+import FlashBanner, { type FlashPayload } from "../components/FlashBanner";
+import AppAlert from "../components/ui/AppAlert";
+import { useAppDialog } from "../hooks/useAppDialog";
+import { getApiErrorMessage } from "../lib/apiErrorMessage";
 import { formatBRL, formatDateBR } from "../lib/formatFicha";
 import { deleteGasto, fetchGastos } from "../services/gastosApi";
 import type { Gasto } from "../types/gasto";
 
-function loadErrorMessage(err: unknown): string {
-  if (isAxiosError(err)) {
-    const data = err.response?.data as { message?: string } | undefined;
-    return data?.message ?? err.message ?? "Erro ao carregar os gastos.";
-  }
-  if (err instanceof Error) return err.message;
-  return "Erro ao carregar os gastos.";
-}
-
-function deleteErrorMessage(err: unknown): string {
-  if (isAxiosError(err)) {
-    const data = err.response?.data as { message?: string } | undefined;
-    return data?.message ?? err.message ?? "Não foi possível excluir.";
-  }
-  if (err instanceof Error) return err.message;
-  return "Não foi possível excluir.";
-}
-
 export default function Gastos() {
+  const { confirm, alert } = useAppDialog();
   const [data, setData] = useState<Gasto[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filtroData, setFiltroData] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [selected, setSelected] = useState<Gasto | null>(null);
+  const [flash, setFlash] = useState<FlashPayload | null>(null);
+
+  const dismissFlash = useCallback(() => setFlash(null), []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,7 +27,7 @@ export default function Gastos() {
       const list = await fetchGastos(filtroData.trim() ? { data: filtroData.trim() } : undefined);
       setData(list);
     } catch (e) {
-      setLoadError(loadErrorMessage(e));
+      setLoadError(getApiErrorMessage(e, { fallback: "Erro ao carregar os gastos." }));
       setData([]);
     } finally {
       setLoading(false);
@@ -55,17 +44,30 @@ export default function Gastos() {
   );
 
   async function handleDelete(id: number) {
-    if (!confirm("Excluir esta saída?")) return;
+    const ok = await confirm({
+      title: "Excluir saída",
+      message: "Excluir esta saída?",
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
     try {
       await deleteGasto(id);
       await load();
+      setFlash({ variant: "success", message: "Saída excluída com sucesso." });
     } catch (e) {
-      alert(deleteErrorMessage(e));
+      await alert({
+        title: "Erro ao excluir",
+        message: getApiErrorMessage(e, { fallback: "Não foi possível excluir." }),
+        variant: "error",
+      });
     }
   }
 
   return (
     <div className="p-6">
+      {flash && <FlashBanner flash={flash} onDismiss={dismissFlash} />}
+
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-(--green-title)">Gastos</h1>
         <p className="text-sm text-(--text-secondary)">Registre e consulte saídas (valor, data e descrição).</p>
@@ -116,9 +118,9 @@ export default function Gastos() {
       </div>
 
       {loadError && (
-        <p className="mb-4 text-sm text-(--error-advice)" role="alert">
+        <AppAlert variant="error" className="mb-4" onDismiss={() => setLoadError(null)}>
           {loadError}
-        </p>
+        </AppAlert>
       )}
 
       <div
@@ -134,6 +136,7 @@ export default function Gastos() {
             <tr>
               <th className="p-3 whitespace-nowrap">Data</th>
               <th className="p-3 whitespace-nowrap">Valor</th>
+              <th className="p-3 whitespace-nowrap hidden sm:table-cell">Tipo</th>
               <th className="p-3 min-w-[12rem]">Descrição</th>
               <th className="p-3 text-right whitespace-nowrap">Ações</th>
             </tr>
@@ -141,13 +144,13 @@ export default function Gastos() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={4} className="p-4 text-center text-(--text-secondary)">
+                <td colSpan={5} className="p-4 text-center text-(--text-secondary)">
                   Carregando…
                 </td>
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={4} className="p-4 text-center text-(--text-secondary)">
+                <td colSpan={5} className="p-4 text-center text-(--text-secondary)">
                   Nenhuma saída encontrada{filtroData.trim() ? " para esta data." : "."}
                 </td>
               </tr>
@@ -163,8 +166,20 @@ export default function Gastos() {
                   <td className="p-3 text-(--text-primary) tabular-nums whitespace-nowrap align-top font-medium">
                     {formatBRL(g.valor)}
                   </td>
+                  <td className="p-3 text-(--text-primary) whitespace-nowrap align-top hidden sm:table-cell">
+                    {g.doacao ? (
+                      <span className="inline-flex rounded-full border border-(--light-green)/40 bg-(--light-green)/10 px-2.5 py-0.5 text-xs font-medium text-(--green-title)">
+                        Doação
+                      </span>
+                    ) : (
+                      <span className="text-(--text-secondary) text-xs">Saída</span>
+                    )}
+                  </td>
                   <td className="p-3 text-(--text-primary) align-top">
                     <p className="whitespace-pre-wrap break-words line-clamp-4">{g.descricao}</p>
+                    {g.doacao && (
+                      <p className="mt-1 text-xs text-(--text-secondary) sm:hidden">Doação</p>
+                    )}
                   </td>
                   <td className="p-3 text-right align-top">
                     <div className="inline-flex gap-2 text-(--text-secondary)">
@@ -240,7 +255,7 @@ export default function Gastos() {
             "
           >
             <tr>
-              <td colSpan={3} className="p-3 align-middle">
+              <td colSpan={4} className="p-3 align-middle">
                 <div className="font-semibold">Total</div>
               </td>
               <td className="p-3 text-right font-semibold tabular-nums whitespace-nowrap align-middle">

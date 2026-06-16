@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { isAxiosError } from "axios";
+import { getApiErrorMessage } from "../../lib/apiErrorMessage";
 import { createAdotante, updateAdotante } from "../../services/adotantesApi";
 import type { Adotante } from "../../types/adotante";
+import AppAlert from "../ui/AppAlert";
 
 type Props = {
   open: boolean;
@@ -171,9 +173,9 @@ function AdotanteModalContent({
           return;
         }
 
-        setFormError("Erro ao salvar. Verifique os dados.");
+        setFormError(getApiErrorMessage(err, { fallback: "Erro ao salvar. Verifique os dados." }));
       } else {
-        setFormError("Erro inesperado.");
+        setFormError(getApiErrorMessage(err, { fallback: "Erro inesperado." }));
       }
     } finally {
       setSubmitting(false);
@@ -296,9 +298,9 @@ function AdotanteModalContent({
           </div>
 
           {formError && (
-            <p className="text-sm text-(--error-advice)">
+            <AppAlert variant="error" compact>
               {formError}
-            </p>
+            </AppAlert>
           )}
 
           {/* BOTÕES */}

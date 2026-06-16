@@ -4,6 +4,7 @@ import {
   fetchCatalog,
   type CatalogKind,
 } from "../../services/catalogApi";
+import AppAlert from "../ui/AppAlert";
 
 function mergeOptionLists(defaultOptions: string[] | undefined, server: string[]): string[] {
   const set = new Set<string>();
@@ -149,9 +150,9 @@ export default function CreatableCatalogCombobox({
         className="mt-1 form-control"
       />
       {loadError && (
-        <p className="mt-1 text-xs text-(--error-advice)" role="status">
+        <AppAlert variant="error" compact className="mt-1 text-xs [&_p]:text-xs">
           {loadError}
-        </p>
+        </AppAlert>
       )}
       {showList && (
         <ul

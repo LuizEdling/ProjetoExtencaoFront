@@ -64,6 +64,11 @@ export default function FichaDetalheModal({ animal, onClose }: Props) {
       ),
     },
     { label: "Data (ficha)", value: formatDateBR(animal.data) },
+    {
+      label: "Nº de protocolo",
+      value: animal.numeroProtocolo.trim() !== "" ? animal.numeroProtocolo : "—",
+      valueClassName: "tabular-nums",
+    },
     { label: "Sexo", value: animal.sexo },
     { label: "Idade", value: `${animal.idade} anos` },
     { label: "Peso", value: formatPesoKg(animal.peso) },
@@ -72,6 +77,14 @@ export default function FichaDetalheModal({ animal, onClose }: Props) {
       label: "Microchip",
       value: animal.microchip.trim() !== "" ? animal.microchip : "—",
       valueClassName: "tabular-nums",
+    },
+    {
+      label: "Bairro (resgate)",
+      value: animal.bairroResgate.trim() !== "" ? animal.bairroResgate : "—",
+    },
+    {
+      label: "Rua (resgate)",
+      value: animal.ruaResgate.trim() !== "" ? animal.ruaResgate : "—",
     },
     {
       label: "Cuidados",

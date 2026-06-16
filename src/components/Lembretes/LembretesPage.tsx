@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { getApiErrorMessage } from "../../lib/apiErrorMessage";
 import type { Lembrete } from "../../types/lembrete";
 import { fetchLembretes, deleteLembrete } from "../../services/lembretesApi";
 import {
@@ -7,7 +8,9 @@ import {
   mensagemAlerta,
   temAlerta,
 } from "../../lib/lembreteAlertas";
+import FlashBanner, { type FlashPayload } from "../FlashBanner";
 import LembreteModal from "./LembreteModal";
+import { useAppDialog } from "../../hooks/useAppDialog";
 
 function BellIcon() {
   return (
@@ -28,10 +31,14 @@ function BellIcon() {
 }
 
 export default function LembretesPage() {
+  const { confirm, alert } = useAppDialog();
   const [data, setData] = useState<Lembrete[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [alertasOpen, setAlertasOpen] = useState(false);
   const [selected, setSelected] = useState<Lembrete | null>(null);
+  const [flash, setFlash] = useState<FlashPayload | null>(null);
+
+  const dismissFlash = useCallback(() => setFlash(null), []);
 
   const lembretesComAlerta = useMemo(() => {
     return data.filter(temAlerta);
@@ -61,10 +68,34 @@ export default function LembretesPage() {
   }, []);
 
   async function handleDelete(id: number) {
-    if (!confirm("Excluir lembrete?")) return;
+    const ok = await confirm({
+      title: "Excluir lembrete",
+      message: "Excluir lembrete?",
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
 
-    await deleteLembrete(id);
+    try {
+      await deleteLembrete(id);
+      await load();
+      setFlash({ variant: "success", message: "Lembrete excluído com sucesso." });
+    } catch (err) {
+      await alert({
+        title: "Erro ao excluir",
+        message: getApiErrorMessage(err, { fallback: "Não foi possível excluir o lembrete." }),
+        variant: "error",
+      });
+    }
+  }
+
+  async function handleSaved() {
+    const wasEdit = selected !== null;
     await load();
+    setFlash({
+      variant: "success",
+      message: wasEdit ? "Lembrete atualizado com sucesso." : "Lembrete cadastrado com sucesso.",
+    });
   }
 
   function handleOpenCreate() {
@@ -85,6 +116,8 @@ export default function LembretesPage() {
 
   return (
     <div className="relative p-6">
+      {flash && <FlashBanner flash={flash} onDismiss={dismissFlash} />}
+
       <button
         type="button"
         onClick={() => setAlertasOpen(true)}
@@ -174,7 +207,8 @@ export default function LembretesPage() {
                       Editar
                     </button>
                     <button
-                      onClick={() => handleDelete(l.id)}
+                      type="button"
+                      onClick={() => void handleDelete(l.id)}
                       className="rounded-full px-3 py-1 hover:bg-(--background-first-layer)"
                     >
                       Excluir
@@ -272,7 +306,7 @@ export default function LembretesPage() {
       <LembreteModal
         open={modalOpen}
         onClose={handleCloseModal}
-        onSaved={load}
+        onSaved={handleSaved}
         lembreteToEdit={selected}
       />
     </div>

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { isAxiosError } from "axios";
+import { getApiErrorMessage } from "../../lib/apiErrorMessage";
 import { createLembrete, updateLembrete } from "../../services/lembretesApi";
 import type { Lembrete, LembreteFormPayload, TipoRecorrencia } from "../../types/lembrete";
+import AppAlert from "../ui/AppAlert";
 
 type Props = {
   open: boolean;
@@ -128,9 +129,7 @@ function LembreteModalContent({
       await onSaved();
       onClose();
     } catch (err) {
-      if (isAxiosError(err)) {
-        setError("Erro ao salvar.");
-      }
+      setError(getApiErrorMessage(err, { fallback: "Erro ao salvar." }));
     }
   }
 
@@ -274,7 +273,11 @@ function LembreteModalContent({
             />
           </label>
 
-          {error && <p className="text-(--error-advice)">{error}</p>}
+          {error && (
+            <AppAlert variant="error" compact>
+              {error}
+            </AppAlert>
+          )}
 
           <button className="w-full rounded-full bg-(--light-green) py-2 text-white">
             Salvar

@@ -1,44 +1,19 @@
-import { isAxiosError } from "axios";
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import FlashBanner, { type FlashPayload } from "../components/FlashBanner";
+import AppAlert from "../components/ui/AppAlert";
+import { useAppDialog } from "../hooks/useAppDialog";
 import AnimalEstadoSelect from "../components/Fichas/AnimalEstadoSelect";
 import { AnimalCuidadoCheckboxCell, type CuidadosKey } from "../components/Fichas/AnimalCuidadosCheckboxes";
 import FichaAdicionarModal from "../components/Fichas/FichaAdicionarModal";
 import FichaDetalheModal from "../components/Fichas/FichaDetalheModal";
+import { getApiErrorMessage } from "../lib/apiErrorMessage";
 import { formatDateBR } from "../lib/formatFicha";
 import { adoptionCelebrationMessage } from "../lib/adoptionCelebrationMessage";
 import { deleteAnimal, fetchAnimalsPage, patchAnimalCuidados } from "../services/animalsApi";
 import { fetchAnimalStates } from "../services/animalStatesApi";
 import type { AnimalEstadoApiRow } from "../services/animalStatesApi";
 import type { AnimalFicha } from "../types/animalFicha";
-
-function loadErrorMessage(err: unknown): string {
-  if (isAxiosError(err)) {
-    const data = err.response?.data as { message?: string } | undefined;
-    return data?.message ?? err.message ?? "Erro ao carregar os animais.";
-  }
-  if (err instanceof Error) return err.message;
-  return "Erro ao carregar os animais.";
-}
-
-function deleteErrorMessage(err: unknown): string {
-  if (isAxiosError(err)) {
-    const data = err.response?.data as { message?: string } | undefined;
-    return data?.message ?? err.message ?? "Não foi possível excluir a ficha.";
-  }
-  if (err instanceof Error) return err.message;
-  return "Não foi possível excluir a ficha.";
-}
-
-function cuidadosPatchErrorMessage(err: unknown): string {
-  if (isAxiosError(err)) {
-    const data = err.response?.data as { message?: string } | undefined;
-    return data?.message ?? err.message ?? "Não foi possível atualizar os cuidados.";
-  }
-  if (err instanceof Error) return err.message;
-  return "Não foi possível atualizar os cuidados.";
-}
 
 type FichasLocationState = {
   openAnimal?: AnimalFicha;
@@ -47,12 +22,19 @@ type FichasLocationState = {
 export default function Fichas() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { confirm } = useAppDialog();
   const [animais, setAnimais] = useState<AnimalFicha[]>([]);
   const [estadosCatalogo, setEstadosCatalogo] = useState<AnimalEstadoApiRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [listFetching, setListFetching] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
   const [qApi, setQApi] = useState("");
+  const [filtroEstadoId, setFiltroEstadoId] = useState("");
+  const [filtroBairro, setFiltroBairro] = useState("");
+  const [filtroRua, setFiltroRua] = useState("");
+  const [bairroApi, setBairroApi] = useState("");
+  const [ruaApi, setRuaApi] = useState("");
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -61,6 +43,7 @@ export default function Fichas() {
   const [fichaFormOpen, setFichaFormOpen] = useState(false);
   const [animalToEdit, setAnimalToEdit] = useState<AnimalFicha | null>(null);
   const [flash, setFlash] = useState<FlashPayload | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [savingCuidadosKey, setSavingCuidadosKey] = useState<string | null>(null);
 
   const dismissFlash = useCallback(() => setFlash(null), []);
@@ -77,27 +60,62 @@ export default function Fichas() {
 
   useEffect(() => {
     setPage(1);
-  }, [qApi]);
+  }, [qApi, filtroEstadoId, bairroApi, ruaApi]);
+
+  useEffect(() => {
+    const trimmed = filtroBairro.trim();
+    if (trimmed === "") {
+      setBairroApi("");
+      return;
+    }
+    const t = window.setTimeout(() => setBairroApi(trimmed), 400);
+    return () => window.clearTimeout(t);
+  }, [filtroBairro]);
+
+  useEffect(() => {
+    const trimmed = filtroRua.trim();
+    if (trimmed === "") {
+      setRuaApi("");
+      return;
+    }
+    const t = window.setTimeout(() => setRuaApi(trimmed), 400);
+    return () => window.clearTimeout(t);
+  }, [filtroRua]);
+
+  const hasActiveFilters =
+    qApi !== "" || filtroEstadoId !== "" || bairroApi !== "" || ruaApi !== "";
 
   const loadList = useCallback(async () => {
-    setLoading(true);
+    setListFetching(true);
     setLoadError(null);
     try {
-      const res = await fetchAnimalsPage({ page, perPage: 10, q: qApi || undefined });
+      const estadoId =
+        filtroEstadoId !== "" && /^\d+$/.test(filtroEstadoId)
+          ? parseInt(filtroEstadoId, 10)
+          : undefined;
+      const res = await fetchAnimalsPage({
+        page,
+        perPage: 10,
+        q: qApi || undefined,
+        ...(estadoId != null ? { animal_state_id: estadoId } : {}),
+        ...(bairroApi ? { bairro_resgate: bairroApi } : {}),
+        ...(ruaApi ? { rua_resgate: ruaApi } : {}),
+      });
       setAnimais(res.data);
       setLastPage(res.lastPage);
       setPerPage(res.perPage);
       setTotal(res.total);
     } catch (e) {
-      setLoadError(loadErrorMessage(e));
+      setLoadError(getApiErrorMessage(e, { fallback: "Erro ao carregar os animais." }));
       setAnimais([]);
       setLastPage(1);
       setPerPage(10);
       setTotal(0);
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setListFetching(false);
     }
-  }, [page, qApi]);
+  }, [page, qApi, filtroEstadoId, bairroApi, ruaApi]);
 
   useEffect(() => {
     void loadList();
@@ -189,7 +207,7 @@ export default function Fichas() {
       const next = await patchAnimalCuidados(animal.id, { [key]: checked });
       handleEstadoUpdated(animal.id, next);
     } catch (err) {
-      setFlash({ variant: "error", message: cuidadosPatchErrorMessage(err) });
+      setActionError(getApiErrorMessage(err, { fallback: "Não foi possível atualizar os cuidados." }));
     } finally {
       setSavingCuidadosKey(null);
     }
@@ -197,13 +215,13 @@ export default function Fichas() {
 
   async function handleDelete(e: React.MouseEvent, animal: AnimalFicha) {
     e.stopPropagation();
-    if (
-      !window.confirm(
-        `Excluir a ficha de “${animal.nome}”? O animal sai da listagem, mas o registro permanece no sistema (exclusão suave).`,
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Excluir ficha",
+      message: `Excluir a ficha de “${animal.nome}”? O animal sai da listagem, mas o registro permanece no sistema (exclusão suave).`,
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
     try {
       await deleteAnimal(animal.id);
       setSelecionado((cur) => (cur?.id === animal.id ? null : cur));
@@ -215,9 +233,14 @@ export default function Fichas() {
         await loadList();
       }
     } catch (err) {
-      setFlash({ variant: "error", message: deleteErrorMessage(err) });
+      setActionError(getApiErrorMessage(err, { fallback: "Não foi possível excluir a ficha." }));
     }
   }
+
+  const showTable =
+    !loadError &&
+    !initialLoading &&
+    (total > 0 || (listFetching && animais.length > 0));
 
   return (
     <div className="max-w-7xl mx-auto w-full space-y-8">
@@ -256,64 +279,120 @@ export default function Fichas() {
                 type="search"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar por nome, raça, espécie ou microchip..."
-                disabled={loading || !!loadError}
+                placeholder="Buscar por nome, raça, espécie, protocolo, microchip ou local..."
                 className="
                   w-full rounded-full border border-(--light-gray)/50
                   bg-(--background-second-layer) text-(--text-primary)
                   pl-10 pr-4 py-2.5 text-sm
                   shadow-sm outline-none
                   focus:border-(--light-green) focus:ring-2 focus:ring-(--highlighted-text)/40
-                  disabled:opacity-50
                 "
               />
             </label>
           </div>
         </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <label className="block min-w-0">
+            <span className="sr-only">Filtrar por estado</span>
+            <select
+              value={filtroEstadoId}
+              onChange={(e) => setFiltroEstadoId(e.target.value)}
+              className="
+                w-full rounded-full border border-(--light-gray)/50
+                bg-(--background-second-layer) text-(--text-primary)
+                px-4 py-2.5 text-sm
+                shadow-sm outline-none
+                focus:border-(--light-green) focus:ring-2 focus:ring-(--highlighted-text)/40
+              "
+            >
+              <option value="">Todos os estados</option>
+              {estadosCatalogo.map((estado) => (
+                <option key={estado.id} value={String(estado.id)}>
+                  {estado.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block min-w-0">
+            <span className="sr-only">Filtrar por bairro do resgate</span>
+            <input
+              type="search"
+              value={filtroBairro}
+              onChange={(e) => setFiltroBairro(e.target.value)}
+              placeholder="Bairro (resgate)"
+              className="
+                w-full rounded-full border border-(--light-gray)/50
+                bg-(--background-second-layer) text-(--text-primary)
+                px-4 py-2.5 text-sm
+                shadow-sm outline-none
+                focus:border-(--light-green) focus:ring-2 focus:ring-(--highlighted-text)/40
+              "
+            />
+          </label>
+          <label className="block min-w-0">
+            <span className="sr-only">Filtrar por rua do resgate</span>
+            <input
+              type="search"
+              value={filtroRua}
+              onChange={(e) => setFiltroRua(e.target.value)}
+              placeholder="Rua (resgate)"
+              className="
+                w-full rounded-full border border-(--light-gray)/50
+                bg-(--background-second-layer) text-(--text-primary)
+                px-4 py-2.5 text-sm
+                shadow-sm outline-none
+                focus:border-(--light-green) focus:ring-2 focus:ring-(--highlighted-text)/40
+              "
+            />
+          </label>
+        </div>
       </header>
 
       {flash && <FlashBanner flash={flash} onDismiss={dismissFlash} />}
 
-      {loadError && (
-        <div
-          className="
-            rounded-2xl border border-(--error-advice)/40 bg-(--red-bg)/50
-            px-4 py-3 text-sm text-(--error-advice)
-          "
-          role="alert"
-        >
-          {loadError}
-        </div>
+      {actionError && (
+        <AppAlert variant="error" onDismiss={() => setActionError(null)}>
+          {actionError}
+        </AppAlert>
       )}
 
-      {loading && (
+      {loadError && (
+        <AppAlert variant="error" onDismiss={() => setLoadError(null)}>
+          {loadError}
+        </AppAlert>
+      )}
+
+      {initialLoading && (
         <p className="text-center text-(--text-secondary) py-16">Carregando animais…</p>
       )}
 
-      {!loading && !loadError && total === 0 && !qApi && (
+      {!listFetching && !loadError && !initialLoading && total === 0 && !hasActiveFilters && (
         <p className="text-center text-(--text-secondary) py-16 rounded-2xl border border-(--light-gray)/25 bg-(--background-second-layer)">
           Nenhum animal cadastrado ainda. Use &quot;Adicionar Ficha&quot; para incluir o primeiro.
         </p>
       )}
 
-      {!loading && !loadError && total === 0 && qApi && (
+      {!listFetching && !loadError && !initialLoading && total === 0 && hasActiveFilters && (
         <p className="text-center text-(--text-secondary) py-16 rounded-2xl border border-(--light-gray)/25 bg-(--background-second-layer)">
           Nenhum animal encontrado para essa busca.
         </p>
       )}
 
-      {!loading && !loadError && total > 0 && (
+      {showTable && (
         <div
-          className="
+          className={`
             rounded-2xl border border-(--light-gray)/25
             bg-(--background-second-layer)
             shadow-sm overflow-hidden overflow-x-auto
-          "
+            transition-opacity
+            ${listFetching ? "opacity-60 pointer-events-none" : ""}
+          `}
         >
-          <table className="w-full min-w-[62rem] text-sm text-left">
+          <table className="w-full min-w-[68rem] text-sm text-left">
             <thead className="bg-(--background-first-layer) text-(--text-secondary)">
               <tr>
                 <th className="p-3 min-w-[10rem]">Animal</th>
+                <th className="p-3 whitespace-nowrap hidden lg:table-cell">Protocolo</th>
                 <th className="p-3 hidden md:table-cell">Raça</th>
                 <th className="p-3 hidden lg:table-cell">Espécie</th>
                 <th className="p-3 whitespace-nowrap hidden md:table-cell">Microchip</th>
@@ -344,6 +423,9 @@ export default function Fichas() {
                       {animal.nome}
                     </button>
                     <p className="mt-1 text-xs text-(--text-secondary) md:hidden">{animal.raca}</p>
+                    <p className="mt-0.5 text-[0.65rem] text-(--text-secondary)/80 lg:hidden">
+                      Protocolo · {animal.numeroProtocolo.trim() !== "" ? animal.numeroProtocolo : "—"}
+                    </p>
                     <p className="mt-0.5 text-[0.65rem] text-(--text-secondary)/80 lg:hidden">{animal.especie}</p>
                     <p className="mt-1 text-xs text-(--text-secondary) md:hidden tabular-nums">
                       Microchip · {animal.microchip.trim() !== "" ? animal.microchip : "—"}
@@ -351,6 +433,9 @@ export default function Fichas() {
                     <p className="mt-1 text-xs text-(--text-secondary) sm:hidden tabular-nums">
                       Ficha · {formatDateBR(animal.data)}
                     </p>
+                  </td>
+                  <td className="p-3 text-(--text-secondary) tabular-nums hidden lg:table-cell align-top whitespace-nowrap">
+                    {animal.numeroProtocolo.trim() !== "" ? animal.numeroProtocolo : "—"}
                   </td>
                   <td className="p-3 text-(--text-primary) hidden md:table-cell align-top">{animal.raca}</td>
                   <td className="p-3 text-(--text-primary) hidden lg:table-cell align-top">{animal.especie}</td>
@@ -453,15 +538,16 @@ export default function Fichas() {
         </div>
       )}
 
-      {!loading && !loadError && total > 0 && (
+      {showTable && total > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <p className="text-sm text-(--text-secondary)">
             Página {page} de {lastPage} · {total} ficha{total === 1 ? "" : "s"} · {perPage} por página
+            {listFetching ? " · Atualizando…" : ""}
           </p>
           <div className="flex gap-2">
             <button
               type="button"
-              disabled={page <= 1}
+              disabled={page <= 1 || listFetching}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               className="
                 px-4 py-2 rounded-full text-sm font-medium border border-(--light-gray)/50
@@ -474,7 +560,7 @@ export default function Fichas() {
             </button>
             <button
               type="button"
-              disabled={page >= lastPage}
+              disabled={page >= lastPage || listFetching}
               onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
               className="
                 px-4 py-2 rounded-full text-sm font-medium border border-(--light-gray)/50

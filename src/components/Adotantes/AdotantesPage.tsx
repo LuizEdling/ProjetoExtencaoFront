@@ -1,7 +1,10 @@
+import { useCallback, useEffect, useState } from "react";
+import { getApiErrorMessage } from "../../lib/apiErrorMessage";
 import type { Adotante } from "../../types/adotante";
 import { fetchAdotantes, deleteAdotante } from "../../services/adotantesApi";
 import AdotanteModal from "./AdotanteModal";
-import { useEffect, useState } from "react";
+import FlashBanner, { type FlashPayload } from "../FlashBanner";
+import { useAppDialog } from "../../hooks/useAppDialog";
 
 /* =========================
    FORMATADORES
@@ -27,8 +30,12 @@ function dash(s: string | null | undefined) {
 }
 
 export default function AdotantesPage() {
+  const { confirm, alert } = useAppDialog();
   const [data, setData] = useState<Adotante[]>([]);
   const [loading, setLoading] = useState(true);
+  const [flash, setFlash] = useState<FlashPayload | null>(null);
+
+  const dismissFlash = useCallback(() => setFlash(null), []);
 
   const [filters, setFilters] = useState({ nome: "", cpf: "" });
 
@@ -66,14 +73,31 @@ export default function AdotantesPage() {
   }, [filters]);
 
   async function handleDelete(id: number) {
-    if (!confirm("Deseja excluir este adotante?")) return;
+    const ok = await confirm({
+      title: "Excluir adotante",
+      message: "Deseja excluir este adotante?",
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
 
-    await deleteAdotante(id);
-    await load();
+    try {
+      await deleteAdotante(id);
+      await load();
+      setFlash({ variant: "success", message: "Adotante excluído com sucesso." });
+    } catch (err) {
+      await alert({
+        title: "Erro ao excluir",
+        message: getApiErrorMessage(err, { fallback: "Não foi possível excluir o adotante." }),
+        variant: "error",
+      });
+    }
   }
 
   return (
     <div className="p-6">
+      {flash && <FlashBanner flash={flash} onDismiss={dismissFlash} />}
+
       {/* HEADER */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-(--green-title)">
@@ -222,7 +246,7 @@ export default function AdotantesPage() {
                       <button
                         type="button"
                         aria-label={`Excluir ${a.nome}`}
-                        onClick={() => handleDelete(a.id)}
+                        onClick={() => void handleDelete(a.id)}
                         className="
                           rounded-full p-2
                           hover:bg-(--background-first-layer)

@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { loginRequest } from "../../lib/authApi";
 import { getLoginErrorMessage } from "../../lib/loginErrorMessage";
 import LoginImage from "../../assets/images/Login/login-image.webp";
+import LoginPasswordInput from "./LoginPasswordInput";
+import AppAlert from "../ui/AppAlert";
 
 export default function LoginForm() {
   const navigate = useNavigate();
@@ -40,9 +42,9 @@ export default function LoginForm() {
 
         <form className="flex flex-col gap-12.5" onSubmit={handleSubmit}>
           {error ? (
-            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+            <AppAlert variant="error" compact>
               {error}
-            </p>
+            </AppAlert>
           ) : null}
 
           <div className="flex flex-col">
@@ -80,30 +82,11 @@ export default function LoginForm() {
             <label htmlFor="login-password-desktop" className="font-extralight">
               Senha
             </label>
-            <input
+            <LoginPasswordInput
               id="login-password-desktop"
-              name="password"
-              type="password"
-              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
               disabled={submitting}
-              className="
-                border border-(--text-secondary)
-                mt-1
-                rounded-sm
-                h-10
-                p-2
-                transition-all duration-200
-
-                hover:border-(--green-title)
-                focus:outline-none
-                focus:border-(--green-title)
-                focus:ring-1 focus:ring-(--green-title)
-
-                active:border-(--green-title)
-              "
             />
           </div>
 

@@ -16,8 +16,20 @@ function getGastosEndpoint(): string {
 export interface GastoApiRow {
   id: number;
   valor: number | string;
+  doacao?: boolean | number | string | null;
   data: string;
   descricao: string;
+}
+
+function parseBool(value: unknown): boolean {
+  if (value === true || value === 1 || value === "1") return true;
+  if (value === false || value === 0 || value === "0") return false;
+  if (typeof value === "string") {
+    const s = value.trim().toLowerCase();
+    if (s === "true") return true;
+    if (s === "false") return false;
+  }
+  return false;
 }
 
 function mapRow(row: GastoApiRow): Gasto {
@@ -25,6 +37,7 @@ function mapRow(row: GastoApiRow): Gasto {
   return {
     id: row.id,
     valor: Number.isFinite(v) ? v : 0,
+    doacao: parseBool(row.doacao),
     data: toIsoDateOnly(row.data),
     descricao: row.descricao ?? "",
   };
